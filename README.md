@@ -8,7 +8,7 @@
 
 ## 🎨 Project Design (Wireframe - Figma)
 
-[Click here to view the Figma Prototype](https://www.figma.com/design/j6X1HD2Ga7WKuDWk2K6miD/Prototype-for-MobController?node-id=0-1&t=nfuxb5ACLbYn9ey4-1)
+[Click here to view the Figma Prototype](https://www.figma.com/design/j6X1HD2Ga7WKuDWk2K6miD/Prototype-for-MobController?node-id=0-1&t=MJgP987n2bERnIHn-1)
 
 ---
 
