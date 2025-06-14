@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "MobControl",
+    "slug": "MobControl",
+    "orientation": "default",
+    "jsEngine": "hermes",
+    "version": "1.0.0",
+    //"orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "entitlements": {
+        "com.apple.developer.networking.wifi-info": true
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.fyp32.mobcontrol"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d11256b9-3183-4e08-835b-06a8560124ec"
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
