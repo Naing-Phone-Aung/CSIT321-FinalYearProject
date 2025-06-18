@@ -31,20 +31,18 @@ export const darkTheme = {
   destructiveBackground: '#5D2B2B',
 };
 
-// Create the complete, navigation-ready light theme
 export const lightNavigationTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    ...lightTheme, // Override with our custom colors
+    ...lightTheme, 
   },
 };
 
-// Create the complete, navigation-ready dark theme
 export const darkNavigationTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    ...darkTheme, // Override with our custom colors
+    ...darkTheme, 
   },
 };

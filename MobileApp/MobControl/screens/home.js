@@ -1,4 +1,5 @@
 // screens/home.js
+
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,22 +9,39 @@ import { useNavigation } from '@react-navigation/native';
 import { loadLayouts, saveLayouts, createDefaultLayout } from '../services/LayoutService';
 import EditLayoutModal from '../components/EditLayoutName';
 import ConfirmationModal from '../components/Confirmation';
+import LayoutPreview from '../components/LayoutPreview'; 
 
 const LayoutCard = ({ layout, onEdit, onDelete, navigation }) => {
   const { theme } = useSettings();
+  const [previewSize, setPreviewSize] = useState(null);
+
   return (
     <TouchableOpacity onPress={() => navigation.navigate('Gamepad', { layout })}>
-      <View style={[styles.imagePlaceholder, { backgroundColor: '#000' }]}>
-        <Text style={{color: '#555'}}>Layout Preview Area</Text>
+      <View 
+        style={styles.previewWrapper}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          if (!previewSize || previewSize.width !== width || previewSize.height !== height) {
+            setPreviewSize({ width, height });
+          }
+        }}
+      >
+        {previewSize && (
+          <LayoutPreview 
+            layout={layout} 
+            size={previewSize}
+          />
+        )}
       </View>
+      
       <View style={styles.cardActions}>
         <Text style={[styles.layoutName, { color: theme.colors.text }]}>{layout.name}</Text>
         <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity style={[styles.editButton, { backgroundColor: theme.colors.separator }]} onPress={() => onEdit(layout)}>
+          <TouchableOpacity style={[styles.editButton, { backgroundColor: theme.colors.separator }]} onPress={(e) => { e.stopPropagation(); onEdit(layout); }}>
             <Feather name="edit-2" size={16} color={theme.colors.text} />
             <Text style={[styles.buttonText, { color: theme.colors.text }]}>Edit</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.deleteButton, { backgroundColor: theme.colors.destructiveBackground }]} onPress={() => onDelete(layout)}>
+          <TouchableOpacity style={[styles.deleteButton, { backgroundColor: theme.colors.destructiveBackground }]} onPress={(e) => { e.stopPropagation(); onDelete(layout); }}>
             <Feather name="trash-2" size={16} color="#D32F2F" />
             <Text style={[styles.buttonText, { color: '#D32F2F' }]}>Delete</Text>
           </TouchableOpacity>
@@ -32,6 +50,7 @@ const LayoutCard = ({ layout, onEdit, onDelete, navigation }) => {
     </TouchableOpacity>
   );
 };
+
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -114,7 +133,6 @@ export default function HomeScreen() {
         onClose={handleCloseAddModal}
         onSave={handleConfirmAddNewLayout}
         initialValue="My New Layout"
-        // Provide the custom text for creating
         title="Create New Layout"
         message="Please enter a name for your new layout."
       />      
@@ -123,13 +141,13 @@ export default function HomeScreen() {
         onClose={handleCloseEditModal}
         onSave={handleSaveLayoutName}
         initialValue={editingLayout?.name}
-        // No title/message props needed; it will use the defaults
       />      
     <ConfirmationModal visible={isDeleteModalVisible} onClose={handleCloseDeleteModal} onConfirm={handleConfirmDelete} title="Delete Layout" message={`Are you sure you want to delete "${deletingLayout?.name}"?`} confirmButtonText="Delete" confirmButtonColor="#D32F2F" />
     </SafeAreaView>
   );
 }
 
+// --- Complete Stylesheet ---
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   contentContainer: { padding: 20 },
@@ -138,9 +156,18 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
   newLayoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8 },
   newLayoutButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
-  cardContainer: { marginBottom: 20 },
-  imagePlaceholder: { height: 180, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  cardActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+
+  previewWrapper: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+  },
+  cardActions: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginTop: 12 
+  },
+
   layoutName: { fontSize: 16, fontWeight: '500' },
   editButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
   deleteButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, marginLeft: 10 },

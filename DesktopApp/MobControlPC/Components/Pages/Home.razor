@@ -1,0 +1,88 @@
+﻿@page "/"
+@implements IDisposable
+@using MobControlPC.Services
+@using System.Net.NetworkInformation
+@inject ServerService Server
+
+@if (Server != null)
+{
+    <div class="page-container">
+        <header>
+            <svg class="logo-svg" ...></svg>
+            <h1>Mob Controller Receiver</h1>
+        </header>
+        <main>
+            <section class="connection-info">
+                <div class="info-box">
+                    <h2>Local Connection</h2>
+                    <div class="network-card">
+                        <svg class="icon" ...></svg>
+                        <div class="details">
+                            <span class="ssid">@_wifiSsid</span>
+                            <span class="device-name">Device name : @Server.DeviceName</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <h2>Connected Device</h2>
+                    @if (Server.IsAnyClientConnected)
+                    {
+                        @foreach (var client in Server.ConnectedClients)
+                        {
+                            <div class="network-card connected mb-2">
+                                <svg class="icon" ...></svg>
+                                <div class="details">
+                                    <span class="ssid">@client.Name</span>
+                                    <span class="device-name">Connected, secured</span>
+                                </div>
+                                <div class="actions">
+                                    <svg class="icon-small" ...></svg>
+                                    <button @onclick="() => Server.DisconnectClient(client.Id)">Disconnect</button>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                         <div class="network-card placeholder">
+                            <span>Waiting for connection...</span>
+                        </div>
+                    }
+                </div>
+            </section>
+            <section class="qr-section">
+                <h2>Scan QR</h2>
+                <p>Opens Mob-Controller on your phone and scan QR code to confirm.</p>
+                @if (Server.QrCodeImage != null)
+                {
+                    <img class="qr-code" src="@Server.QrCodeImage" alt="QR Code" />
+                }
+            </section>
+        </main>
+    </div>
+}
+
+@code {
+    private string _wifiSsid = "Detecting...";
+
+    protected override void OnInitialized()
+    {
+        if (Server != null) {
+            _wifiSsid = GetWifiSsid(); 
+            Server.PropertyChanged += OnServerPropertyChanged;
+            Server.Start();
+        }
+    }
+
+    private async void OnServerPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => await InvokeAsync(StateHasChanged);
+    
+    private string GetWifiSsid() {
+        try {
+            var wifiInterface = NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(i => i.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 && i.OperationalStatus == OperationalStatus.Up);
+            return wifiInterface?.Name ?? "Wi-Fi not found";
+        } catch { return "Permission error"; }
+    }
+
+    public void Dispose() { if (Server != null) Server.PropertyChanged -= OnServerPropertyChanged; }
+}

@@ -19,11 +19,10 @@ export const SettingsProvider = ({ children }) => {
     setIsHapticEnabled(prevState => !prevState);
   };
 
-  // This logic is now correct because the themes are imported
   const theme = themeMode === 'light' ? lightNavigationTheme : darkNavigationTheme;
 
   const value = {
-    theme, // This is now the full navigation theme object
+    theme,
     themeMode,
     toggleTheme,
     isHapticEnabled,
@@ -37,5 +36,4 @@ export const SettingsProvider = ({ children }) => {
   );
 };
 
-// Create a custom hook for easy access to the context
 export const useSettings = () => useContext(SettingsContext);

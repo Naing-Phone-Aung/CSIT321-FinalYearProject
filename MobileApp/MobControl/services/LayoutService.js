@@ -16,25 +16,24 @@ export const createDefaultLayout = () => ({
     { id: 'btn_lt', type: 'shoulder', label: 'LT', x: 11, y: 15, width: 18, height: 16 },
     { id: 'btn_lb', type: 'shoulder', label: 'LB', x: 13, y: 34, width: 18, height: 16 },
 
-    // --- Right Side (NEW, CORRECTED POSITIONS) ---
+    // --- Right Side ---
     { id: 'joy_r', type: 'joystick', x: 62, y: 70, size: 38 },
-    // Action buttons are moved down significantly to create space
+
     { id: 'btn_y', type: 'action', label: 'Y', x: 84, y: 45, size: 12 },
     { id: 'btn_b', type: 'action', label: 'B', x: 91, y: 60, size: 12 },
     { id: 'btn_a', type: 'action', label: 'A', x: 84, y: 75, size: 12 },
     { id: 'btn_x', type: 'action', label: 'X', x: 77, y: 60, size: 12 },
-    // Shoulder buttons are moved slightly for better alignment
+
     { id: 'btn_rt', type: 'shoulder', label: 'RT', x: 89, y: 15, width: 18, height: 16 },
     { id: 'btn_rb', type: 'shoulder', label: 'RB', x: 87, y: 32, width: 18, height: 16 },
     
-    // --- Center Floating Buttons ---
+    // --- Center Buttons ---
     { id: 'menu', type: 'menu', x: 45, y: 28, size: 9 },
     { id: 'clone', type: 'clone', x: 55, y: 28, size: 9 },
   ],
 });
 
 
-// Your existing save/load functions remain the same and are correct.
 export const loadLayouts = async () => {
   try {
     const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);

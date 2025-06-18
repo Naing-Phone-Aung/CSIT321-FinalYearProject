@@ -1,30 +1,95 @@
 // screens/connect.js
 
 import React, { useState, useEffect } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Linking,
-  Platform,
-} from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import NetInfo from '@react-native-community/netinfo';
-import * as Location from 'expo-location';
-import * as IntentLauncher from 'expo-intent-launcher';
 import { useSettings } from '../context/SettingsContext';
+import { useConnection } from '../context/useConnection'; 
+import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Location from 'expo-location'; 
+import NetInfo from '@react-native-community/netinfo';
+import { useNavigation } from '@react-navigation/native'; 
 
-// --- Reusable Step Component ---
-// Now receives the theme as a prop to apply colors
+
+const ConnectionStatus = ({ theme }) => {
+  const [networkState, setNetworkState] = useState({ isConnected: false, ssid: null });
+  const [locationPermission, setLocationPermission] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      const requestLocationPermission = async () => {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          setLocationPermission(true);
+          NetInfo.fetch().then(state => {
+            setNetworkState({
+              isConnected: state.isConnected && state.type === 'wifi',
+              ssid: state.type === 'wifi' ? state.details.ssid : null,
+            });
+          });
+        }
+      };
+      requestLocationPermission();
+    }
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      let currentSsid = null;
+      if (state.isConnected && state.type === 'wifi') {
+        if (Platform.OS === 'android' && locationPermission) {
+          currentSsid = state.details.ssid;
+        } else if (Platform.OS === 'ios') {
+
+        }
+      }
+      setNetworkState({
+        isConnected: state.isConnected && state.type === 'wifi',
+        ssid: currentSsid,
+      });
+    });
+
+    return () => unsubscribe();
+  }, [locationPermission]);
+
+  const handleConnectPress = () => {
+    if (Platform.OS === 'ios') {
+      Linking.openURL('App-Prefs:root=WIFI');
+    } else {
+      IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.WIFI_SETTINGS);
+    }
+  };
+  
+  const statusColor = networkState.isConnected ? theme.colors.primary : theme.colors.textSecondary;
+
+  const statusText = networkState.isConnected 
+    ? (networkState.ssid || 'Connected') 
+    : 'Not connected';
+
+  return (
+    <View style={styles.statusContainer}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <MaterialCommunityIcons 
+          name={networkState.isConnected ? "wifi" : "wifi-off"} 
+          size={24} 
+          color={statusColor}
+        />
+        <Text style={[styles.statusText, { color: statusColor }]}>
+          {statusText}
+        </Text>
+      </View>
+      <TouchableOpacity style={[styles.connectButtonMain, { backgroundColor: theme.colors.primary }]} onPress={handleConnectPress}>
+        <Text style={styles.connectButtonText}>Connect</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const ConnectionStep = ({ stepNumber, text, theme }) => (
   <View style={styles.stepContainer}>
-    <View style={styles.stepIconContainer}>
-      <View style={[styles.stepLine, { backgroundColor: theme.colors.separator }]} />
-      <Feather name="check-circle" size={24} color={theme.colors.textSecondary} />
+    <View style={[styles.stepCircle, { backgroundColor: theme.colors.card }]}>
+      <Feather name="check" size={20} color={theme.colors.primary} />
     </View>
     <View style={styles.stepTextContainer}>
       <Text style={[styles.stepTitle, { color: theme.colors.textSecondary }]}>STEP {stepNumber}</Text>
@@ -33,166 +98,211 @@ const ConnectionStep = ({ stepNumber, text, theme }) => (
   </View>
 );
 
-// --- Reusable PC Item Component ---
-// Now receives the theme as a prop
-const PCItem = ({ name, status, onConnect, onDisconnect, theme }) => {
-  const isConnected = status === 'Connected, secured';
-  
-  // A theme-aware style for the connected item
-  const connectedStyle = {
-    backgroundColor: isConnected ? theme.colors.connected : theme.colors.card,
-  };
-  
+const LocalPCCard = ({ pc, connectedPC, onConnect, onDisconnect, theme }) => {
+  const isConnected = connectedPC?.address === pc.address;
+
+  const cardStyle = [styles.pcCard, { backgroundColor: theme.colors.card }, isConnected && { backgroundColor: theme.colors.connected }];
+  const textStyle = { color: isConnected ? theme.colors.connectedText : theme.colors.text };
+  const secondaryTextStyle = { color: isConnected ? theme.colors.connectedText : theme.colors.textSecondary };
+  const buttonTextStyle = { color: isConnected ? theme.colors.connectedText : theme.colors.primary };
+
   return (
-    <View style={[styles.pcItem, connectedStyle]}>
-      <View>
-        <Text style={[styles.pcName, { color: theme.colors.text }]}>{name}</Text>
-        <Text style={[styles.pcStatus, { color: isConnected ? '#34C759' : theme.colors.textSecondary }]}>
-          {status}
-        </Text>
+    <View style={cardStyle}>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.pcName, textStyle]}>{pc.name}</Text>
+        <Text style={secondaryTextStyle}>{isConnected ? 'Connected, secured' : 'Online'}</Text>
       </View>
-      <TouchableOpacity onPress={isConnected ? onDisconnect : onConnect}>
-        <Text style={[styles.pcActionText, { color: theme.colors.primary }]}>
-          {isConnected ? 'Disconnect' : 'Tap to Connect'}
-        </Text>
+      <TouchableOpacity onPress={() => (isConnected ? onDisconnect() : onConnect(pc))}>
+        <Text style={[styles.pcConnectButton, buttonTextStyle]}>{isConnected ? 'Disconnect' : 'Tap to Connect'}</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
+const SearchingCard = ({ onRefresh, isScanning, theme }) => (
+  <TouchableOpacity 
+    onPress={onRefresh} 
+    disabled={isScanning} 
+    style={[styles.pcCard, styles.searchingCard, { backgroundColor: theme.colors.card }]}
+  >
+    {isScanning ? (
+      <>
+        <ActivityIndicator color={theme.colors.primary} style={{ marginRight: 12 }} />
+        <Text style={{ color: theme.colors.textSecondary }}>Searching for PCs...</Text>
+      </>
+    ) : (
+      <>
+        <Feather name="refresh-cw" size={16} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+        <Text style={{ color: theme.colors.textSecondary }}>No PCs found. Tap to refresh.</Text>
+      </>
+    )}
+  </TouchableOpacity>
+);
+
+
+// --- The Main Screen Component ---
 export default function ConnectScreen() {
-  // --- Get the current theme from the global context ---
   const { theme } = useSettings();
-  const [networkState, setNetworkState] = useState({ type: null, ssid: null });
-  const [isWifiConnected, setIsWifiConnected] = useState(false);
-
-  const localPCs = [
-    { name: 'Naing', status: 'Connected, secured' },
-    { name: 'RyanSnk', status: 'Online' },
-    { name: 'Naimhaze', status: 'Online' },
-  ];
-  
-  useEffect(() => {
-    const checkPermissionsAndGetNetworkInfo = async () => {
-      if (Platform.OS === 'android') {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') console.log('Location permission denied.');
-      }
-      const unsubscribe = NetInfo.addEventListener(state => {
-        setIsWifiConnected(state.type === 'wifi' && state.isConnected);
-        setNetworkState({ type: state.type, ssid: state.type === 'wifi' ? state.details.ssid : null });
-      });
-      return unsubscribe;
-    };
-    const unsubscribePromise = checkPermissionsAndGetNetworkInfo();
-    return () => { unsubscribePromise.then(unsub => unsub && unsub()); };
-  }, []);
-
-const handleConnectPress = () => {
-  if (Platform.OS === 'ios') {
-    Linking.openURL('App-Prefs:'); 
-  } else {
-    IntentLauncher.startActivityAsync(
-      IntentLauncher.ActivityAction.WIFI_SETTINGS
-    );
-  }
-};
+  const { discoveredPCs, connectedPC, connectToPC, disconnect, rescan, isScanning } = useConnection();
+  const navigation = useNavigation();
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
-        {/* --- Header with dynamic colors --- */}
-        <View style={styles.header}>
-          <View style={styles.connectionStatus}>
-            {isWifiConnected ? (
-              <>
-                <MaterialCommunityIcons name="wifi" size={24} color={theme.colors.primary} />
-                <Text style={[styles.connectionTextConnected, { color: theme.colors.primary }]}>
-                  {networkState.ssid || 'Connected'}
-                </Text>
-              </>
-            ) : (
-              <>
-                <MaterialCommunityIcons name="wifi-off" size={24} color={theme.colors.icon} />
-                <Text style={[styles.connectionText, { color: theme.colors.text }]}>Not connected</Text>
-              </>
-            )}
-          </View>
-          <TouchableOpacity style={[styles.connectButton, { backgroundColor: theme.colors.primary }]} onPress={handleConnectPress}>
-            <Text style={styles.connectButtonText}>Connect</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* --- How to connect section with dynamic colors --- */}
+        
+        <ConnectionStatus theme={theme} />
+        
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>How to connect ?</Text>
-            <TouchableOpacity>
-              <Feather name="help-circle" size={24} color={theme.colors.icon} />
-            </TouchableOpacity>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>How to connect?</Text>
+            <TouchableOpacity><Feather name="help-circle" size={22} color={theme.colors.textSecondary} /></TouchableOpacity>
           </View>
           <View style={styles.stepsWrapper}>
-            {/* Pass theme to the step components */}
-            <ConnectionStep theme={theme} stepNumber={1} text="Make sure your phone and PC are on same Wi-Fi network" />
-            <ConnectionStep theme={theme} stepNumber={2} text="Download driver app on your PC and open it website link" />
-            <ConnectionStep theme={theme} stepNumber={3} text="Scan the QR code shown on the PC app or click on button appear below" />
+            <View style={styles.stepLine} />
+            <ConnectionStep stepNumber={1} text="Make sure your phone and PC are on the same Wi-Fi network" theme={theme} />
+            <ConnectionStep stepNumber={2} text="Download the driver app on your PC from our website" theme={theme} />
+            <ConnectionStep stepNumber={3} text="Scan the QR code or use the list of PCs below" theme={theme} />
           </View>
         </View>
 
-        {/* --- Local PC section with dynamic colors --- */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Local PC</Text>
-              <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginLeft: 8 }}/>
-            </View>
-            <TouchableOpacity style={[styles.scanButton, { backgroundColor: theme.colors.primary }]}>
-              <MaterialIcons name="qr-code-scanner" size={16} color="#FFF" />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Local PC</Text>
+            <TouchableOpacity style={[styles.scanButton, { backgroundColor: theme.colors.primary }]} onPress={()=> navigation.navigate('QRScan')}>
+              <MaterialIcons name="qr-code-scanner" size={18} color="#FFF" />
               <Text style={styles.scanButtonText}>Scan QR</Text>
             </TouchableOpacity>
           </View>
-          {localPCs.map((pc, index) => (
-            // Pass theme to the PC item component
-            <PCItem
-              key={index}
-              name={pc.name}
-              status={pc.status}
-              theme={theme}
-              onConnect={() => console.log(`Connecting to ${pc.name}`)}
-              onDisconnect={() => console.log(`Disconnecting from ${pc.name}`)}
-            />
-          ))}
+          
+          {/* This is the final, robust rendering logic */}
+          {discoveredPCs.length > 0 ? (
+            discoveredPCs.map(pc => (
+              <LocalPCCard
+                key={pc.address}
+                pc={pc}
+                onConnect={connectToPC}
+                onDisconnect={disconnect}
+                connectedPC={connectedPC} 
+                theme={theme}
+              />
+            ))
+          ) : (
+            <SearchingCard onRefresh={rescan} isScanning={isScanning} theme={theme} />
+          )}
+
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// --- Styles without hardcoded colors ---
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  container: { flex: 1 },
-  contentContainer: { paddingHorizontal: 20, paddingBottom: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16 },
-  connectionStatus: { flexDirection: 'row', alignItems: 'center' },
-  connectionText: { marginLeft: 8, fontSize: 16 },
-  connectionTextConnected: { marginLeft: 8, fontSize: 16, fontWeight: 'bold' },
-  connectButton: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 },
-  connectButtonText: { color: '#FFF', fontWeight: 'bold' },
-  section: { marginTop: 24 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold' },
-  stepsWrapper: { position: 'relative', paddingLeft: 12 },
-  stepContainer: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
-  stepIconContainer: { alignItems: 'center', marginRight: 16, position: 'relative' },
-  stepLine: { position: 'absolute', top: 24, bottom: -20, left: 11, width: 2 },
-  stepTextContainer: { flex: 1 },
-  stepTitle: { fontSize: 18, marginBottom: 4, fontFamily: 'Doto Thin' },
-  stepDescription: { fontSize: 15, lineHeight: 22 },
-  scanButton: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  scanButtonText: { color: '#FFF', fontWeight: 'bold', marginLeft: 8 },
-  pcItem: { borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  pcName: { fontSize: 16, fontWeight: 'bold' },
-  pcStatus: { fontSize: 14, marginTop: 4 },
-  pcActionText: { fontSize: 15, fontWeight: '500' },
+  contentContainer: { paddingVertical: 10, paddingHorizontal: 20 },
+  statusContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginBottom: 20,
+  },
+  statusText: {
+    marginLeft: 10,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  scanButton: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  scanButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  connectButtonMain: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 99,
+  },
+  connectButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  section: {
+    marginBottom: 30,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  stepsWrapper: {
+    position: 'relative',
+    paddingLeft: 20,
+  },
+  stepLine: {
+    position: 'absolute',
+    left: 35,
+    top: 15,
+    bottom: 15,
+    width: 2,
+    backgroundColor: '#e0e0e0',
+  },
+  stepContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  stepCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 20,
+    zIndex: 1,
+  },
+  stepTextContainer: {
+    flex: 1,
+  },
+  stepTitle: {
+    fontFamily: 'Doto Thin', 
+    fontSize: 18,
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  stepDescription: {
+    fontSize: 16,
+  },
+  pcCard: {
+    padding: 20,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  pcName: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  pcConnectButton: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  searchingCard: {
+    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+  }
 });

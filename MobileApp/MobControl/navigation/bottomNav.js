@@ -3,23 +3,20 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-
 import HomeScreen from '../screens/home';
-import ConnectScreen from '../screens/connect';
 import SettingsScreen from '../screens/setting';
+import ConnectStack from './connectStack'; 
 import { useSettings } from '../context/SettingsContext';
 
 const Tab = createBottomTabNavigator();
 
 export default function BottomTabNavigator() {
-  // --- FIX: Get the current theme from the global context ---
   const { theme } = useSettings();
 
   return (
     <Tab.Navigator
       initialRouteName="Home"
       screenOptions={{
-        // --- FIX: Use the theme's nested 'colors' object ---
         tabBarActiveTintColor: theme.colors.activeIcon,
         tabBarInactiveTintColor: theme.colors.icon,
         tabBarStyle: {
@@ -27,7 +24,7 @@ export default function BottomTabNavigator() {
           borderTopWidth: 0,
           elevation: 0,
         },
-        headerShown: false,
+        headerShown: false, 
       }}
     >
       <Tab.Screen
@@ -39,15 +36,17 @@ export default function BottomTabNavigator() {
           ),
         }}
       />
+
       <Tab.Screen
         name="Connect"
-        component={ConnectScreen}
+        component={ConnectStack} 
         options={{
           tabBarIcon: ({ color, size }) => (
              <MaterialCommunityIcons name="access-point-network" size={size} color={color} />
           ),
         }}
       />
+      
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}

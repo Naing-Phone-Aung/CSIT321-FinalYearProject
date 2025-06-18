@@ -7,7 +7,6 @@ import GamepadScreen from '../screens/Gamepad';
 
 const Stack = createStackNavigator();
 
-// I've renamed this to match the filename for clarity
 export default function RootNav() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>

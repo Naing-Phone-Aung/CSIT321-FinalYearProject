@@ -4,19 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { Modal, StyleSheet, Text, TextInput, View, TouchableOpacity } from 'react-native';
 import { useSettings } from '../context/SettingsContext';
 
-// --- UPDATED: Add title and message to the props ---
 const EditLayoutModal = ({ 
   visible, 
   onClose, 
   onSave, 
   initialValue,
-  title = "Edit Layout Name", // Default title if none is provided
-  message = "Enter a new name for this layout." // Default message
+  title = "Edit Layout Name",
+  message = "Enter a new name for this layout." 
 }) => {
   const { theme } = useSettings();
   const [name, setName] = useState('');
 
-  // This effect runs when the modal becomes visible, setting the initial text
   useEffect(() => {
     if (visible) {
       setName(initialValue || '');
@@ -24,7 +22,6 @@ const EditLayoutModal = ({
   }, [visible, initialValue]);
 
   const handleSave = () => {
-    // Ensure the name is not just empty spaces before saving
     if (name.trim()) {
       onSave(name);
     }
@@ -39,7 +36,6 @@ const EditLayoutModal = ({
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: theme.colors.card }]}>
-          {/* --- UPDATED: Use the props for dynamic text --- */}
           <Text style={[styles.title, { color: theme.colors.text }]}>{title}</Text>
           <Text style={[styles.message, { color: theme.colors.textSecondary }]}>{message}</Text>
           
@@ -72,7 +68,6 @@ const EditLayoutModal = ({
   );
 };
 
-// --- Styles (Unchanged) ---
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -115,5 +110,4 @@ const styles = StyleSheet.create({
   },
 });
 
-// Renamed export to match convention
 export default EditLayoutModal;

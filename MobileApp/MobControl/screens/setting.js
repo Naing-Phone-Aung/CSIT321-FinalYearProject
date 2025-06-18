@@ -11,15 +11,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSettings } from '../context/SettingsContext'; // Corrected path
+import { useSettings } from '../context/SettingsContext'; 
 
-// Reusable Row Component for settings
 const SettingsRow = ({ iconName, iconFamily, title, rightComponent }) => {
-  const { theme } = useSettings(); // theme here is the full navigation theme
+  const { theme } = useSettings(); 
   const IconComponent = iconFamily === 'Ionicons' ? Ionicons : MaterialCommunityIcons;
 
   return (
-    // We don't need a TouchableOpacity here unless the row itself does something
     <View style={styles.row}>
       <View style={[styles.iconContainer, { backgroundColor: theme.colors.card }]}>
         <IconComponent name={iconName} size={22} color={theme.colors.text} />
@@ -45,7 +43,6 @@ export default function SettingsScreen() {
         <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
           Preferences
         </Text>
-        {/* The rows are now inside a container that provides the card background */}
         <View style={[styles.sectionBody, { backgroundColor: theme.colors.card }]}>
           <SettingsRow
             iconName="bug-outline"
@@ -128,7 +125,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
-    backgroundColor: 'transparent', // Icon container itself is transparent
+    backgroundColor: 'transparent',
   },
   rowTitle: {
     fontSize: 17,

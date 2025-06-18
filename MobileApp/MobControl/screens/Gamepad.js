@@ -1,4 +1,4 @@
-// screens/GamepadScreen.js
+// screens/Gamepad.js
 
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-native';
@@ -19,7 +19,6 @@ const landscapeWidth = Math.max(window.width, window.height);
 const landscapeHeight = Math.min(window.width, window.height);
 
 
-// --- Reusable Components ---
 
 const Joystick = ({ style, onMove, buttonId }) => {
   const joystickSize = style.width;
@@ -64,7 +63,6 @@ const Joystick = ({ style, onMove, buttonId }) => {
   );
 };
 
-// --- THIS IS THE CORRECT GAMEBUTTON with TAP vs HOLD ---
 const GameButton = ({ style, children, onStateChange, onTap, buttonId }) => {
   const isPressed = useSharedValue(false);
   const pressTime = useRef(0);
@@ -77,18 +75,15 @@ const GameButton = ({ style, children, onStateChange, onTap, buttonId }) => {
       if (onStateChange) runOnJS(onStateChange)(buttonId, true);
     })
     .onTouchesUp(() => {
-      // Fires INSTANTLY on touch up
       isPressed.value = false;
       if (onStateChange) runOnJS(onStateChange)(buttonId, false);
 
       const duration = Date.now() - pressTime.current;
-      // If the press was very short, consider it a "tap"
       if (duration < 250) {
         if (onTap) runOnJS(onTap)(buttonId);
       }
     })
     .onFinalize(() => {
-        // Failsafe in case the gesture is cancelled for any other reason
         if(isPressed.value) {
             isPressed.value = false;
             if (onStateChange) runOnJS(onStateChange)(buttonId, false);
@@ -116,7 +111,6 @@ const DpadButton = (props) => <GameButton {...props} style={[styles.dpadShape, p
 const FloatingButton = (props) => <GameButton {...props} style={[styles.floatingButton, props.style]}><Feather name={props.iconName} size={20} color="#FFF" /></GameButton>;
 
 
-// --- Main Gamepad Screen Component ---
 export default function GamepadScreen({ route, navigation }) {
   const { layout } = route.params;
 
@@ -125,12 +119,10 @@ export default function GamepadScreen({ route, navigation }) {
     return () => ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
   }, []);
 
-  // Handler for continuous press/release state
   const handleButtonStateChange = (buttonId, isPressed) => {
     console.log(`HOLD STATE: Button ${buttonId} is ${isPressed ? 'PRESSED' : 'RELEASED'}`);
   };
   
-  // Handler for single-tap actions
   const handleButtonTap = (buttonId) => {
     console.log(`TAP ACTION: Button ${buttonId} was tapped.`);
   };
