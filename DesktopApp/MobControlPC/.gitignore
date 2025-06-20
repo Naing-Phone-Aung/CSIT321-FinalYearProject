@@ -1,0 +1,58 @@
+## Build and packaging output
+bin/
+obj/
+AppPackages/
+BundleArtifacts/
+TestResults/
+*.app/
+*.apk
+*.apks
+*.aab
+*.msix
+*.msixupload
+*.msi
+*.zip
+*.nupkg
+
+## User-specific files
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.userprefs
+
+## macOS & iOS
+*.xcuserstate
+*.xcworkspace
+*.xcodeproj
+*.DS_Store
+*.xcuserdata
+*.entitlements
+*.plist
+ios/Pods/
+ios/build/
+
+## Android
+android/.gradle/
+android/.idea/
+android/build/
+android/local.properties
+
+## VS and Rider IDEs
+.vscode/
+.idea/
+.vs/
+.vsconfig
+
+## Logs
+*.log
+
+## Other config
+*.db
+*.bak
+*.cache
+*.swp
+*.tmp
+
+## Maui Generated Native
+platforms/
