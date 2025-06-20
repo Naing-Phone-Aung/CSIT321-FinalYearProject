@@ -5,9 +5,23 @@ node_modules/
 
 # Expo
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
+
+# Prebuild generated native code (unless intentionally ejected/customized)
+android/
+ios/
+
+# Android/iOS artifacts
+*.apk
+*.apks
+*.aab
+*.ipa
+
+# TypeScript
+*.tsbuildinfo
 
 # Native
 .kotlin/
@@ -20,11 +34,13 @@ expo-env.d.ts
 
 # Metro
 .metro-health-check*
+.metro/
 
 # debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # macOS
 .DS_Store
@@ -32,6 +48,19 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+.env.*
 
 # typescript
 *.tsbuildinfo
+
+# IDE configs
+.vscode/
+.idea/
+
+# OS & Editor
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+*.bak
