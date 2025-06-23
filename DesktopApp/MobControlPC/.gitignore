@@ -54,5 +54,3 @@ android/local.properties
 *.swp
 *.tmp
 
-## Maui Generated Native
-platforms/
