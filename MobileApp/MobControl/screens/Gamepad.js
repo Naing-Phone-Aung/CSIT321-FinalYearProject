@@ -1,24 +1,15 @@
-// screens/Gamepad.js
-
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useEffect, useCallback, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ScreenOrientation from 'expo-screen-orientation';
-
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  runOnJS,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+import { useConnection } from '../context/useConnection';
 
 const window = Dimensions.get('window');
 const landscapeWidth = Math.max(window.width, window.height);
 const landscapeHeight = Math.min(window.width, window.height);
-
-
 
 const Joystick = ({ style, onMove, buttonId }) => {
   const joystickSize = style.width;
@@ -37,8 +28,8 @@ const Joystick = ({ style, onMove, buttonId }) => {
       translateX.value = distance * Math.cos(angle);
       translateY.value = distance * Math.sin(angle);
       if (onMove) {
-        const normalizedX = (translateX.value / (radius - stickRadius)).toFixed(4);
-        const normalizedY = (translateY.value / (radius - stickRadius)).toFixed(4);
+        const normalizedX = parseFloat((translateX.value / (radius - stickRadius)).toFixed(4));
+        const normalizedY = parseFloat((translateY.value / (radius - stickRadius)).toFixed(4));
         runOnJS(onMove)(buttonId, { x: normalizedX, y: normalizedY });
       }
     })
@@ -63,25 +54,16 @@ const Joystick = ({ style, onMove, buttonId }) => {
   );
 };
 
-const GameButton = ({ style, children, onStateChange, onTap, buttonId }) => {
+const GameButton = ({ style, children, onStateChange, buttonId }) => {
   const isPressed = useSharedValue(false);
-  const pressTime = useRef(0);
-
   const tapGesture = Gesture.Manual()
     .onTouchesDown(() => {
-      // Fires INSTANTLY on touch down
-      pressTime.current = Date.now();
       isPressed.value = true;
       if (onStateChange) runOnJS(onStateChange)(buttonId, true);
     })
     .onTouchesUp(() => {
       isPressed.value = false;
       if (onStateChange) runOnJS(onStateChange)(buttonId, false);
-
-      const duration = Date.now() - pressTime.current;
-      if (duration < 250) {
-        if (onTap) runOnJS(onTap)(buttonId);
-      }
     })
     .onFinalize(() => {
         if(isPressed.value) {
@@ -89,12 +71,10 @@ const GameButton = ({ style, children, onStateChange, onTap, buttonId }) => {
             if (onStateChange) runOnJS(onStateChange)(buttonId, false);
         }
     });
-
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: withSpring(isPressed.value ? 0.9 : 1) }],
     opacity: withSpring(isPressed.value ? 0.8 : 1),
   }));
-
   return (
     <GestureDetector gesture={tapGesture}>
       <Animated.View style={[style, animatedStyle]}>
@@ -104,7 +84,6 @@ const GameButton = ({ style, children, onStateChange, onTap, buttonId }) => {
   );
 };
 
-
 const ActionButton = (props) => <GameButton {...props} style={[styles.actionButton, props.style]}><Text style={styles.buttonText}>{props.label}</Text></GameButton>;
 const ShoulderButton = (props) => <GameButton {...props} style={[styles.shoulderButton, props.style]}><Text style={styles.buttonText}>{props.label}</Text></GameButton>;
 const DpadButton = (props) => <GameButton {...props} style={[styles.dpadShape, props.style]}><Ionicons name={`caret-${props.direction}-outline`} size={24} color="#FFF" /></GameButton>;
@@ -113,19 +92,37 @@ const FloatingButton = (props) => <GameButton {...props} style={[styles.floating
 
 export default function GamepadScreen({ route, navigation }) {
   const { layout } = route.params;
+  const { sendMessage, connectionStatus } = useConnection();
+  const isConnected = connectionStatus === 'connected';
+  const wasConnected = useRef(isConnected);
 
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-    return () => ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-  }, []);
+    if (wasConnected.current && !isConnected) {
+      console.log("Connection lost while on Gamepad screen. Navigating back.");
+      Alert.alert("Connection Lost", "The connection to the PC was lost.", [
+          { text: "OK", onPress: () => navigation.goBack() }
+      ]);
+    }
+    wasConnected.current = isConnected;
+    return () => ScreenOrientation.unlockAsync();
+  }, [isConnected, navigation]);
 
-  const handleButtonStateChange = (buttonId, isPressed) => {
-    console.log(`HOLD STATE: Button ${buttonId} is ${isPressed ? 'PRESSED' : 'RELEASED'}`);
-  };
+  const handleButtonStateChange = useCallback((buttonId, isPressed) => {
+    const data = { type: 'button', id: buttonId, pressed: isPressed };
+    console.log(`[DATA] Sending: ${JSON.stringify(data)}`);
+    if (isConnected) {
+      sendMessage(data);
+    }
+  }, [isConnected, sendMessage]);
   
-  const handleButtonTap = (buttonId) => {
-    console.log(`TAP ACTION: Button ${buttonId} was tapped.`);
-  };
+  const handleJoystickMove = useCallback((joystickId, position) => {
+    const data = { type: 'joystick', id: joystickId, x: position.x, y: position.y };
+    console.log(`[DATA] Sending: ${JSON.stringify(data)}`);
+    if (isConnected) {
+      sendMessage(data);
+    }
+  }, [isConnected, sendMessage]);
 
   const renderButton = (button) => {
     const baseSize = landscapeHeight;
@@ -138,16 +135,9 @@ export default function GamepadScreen({ route, navigation }) {
       width,
       height,
     };
-
-    const props = {
-      buttonId: button.id,
-      style: absoluteStyle,
-      onStateChange: handleButtonStateChange,
-      onTap: handleButtonTap,
-    };
-
+    const props = { buttonId: button.id, style: absoluteStyle, onStateChange: handleButtonStateChange, };
     switch (button.type) {
-      case 'joystick': return <Joystick key={button.id} {...props} onMove={(id, pos) => console.log(`Joystick ${id}:`, pos)} />;
+      case 'joystick': return <Joystick key={button.id} {...props} onMove={handleJoystickMove} />;
       case 'action': return <ActionButton key={button.id} {...props} label={button.label} />;
       case 'shoulder': return <ShoulderButton key={button.id} {...props} label={button.label} />;
       case 'dpad-up': return <DpadButton key={button.id} {...props} direction="up" />;
@@ -168,9 +158,22 @@ export default function GamepadScreen({ route, navigation }) {
         </View>
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.headerContainer}>
-            <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()}><Ionicons name="arrow-back" size={24} color="#FFF" /></TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton}><Ionicons name="keypad-outline" size={24} color="#FFF" /></TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton}><Ionicons name="settings-outline" size={22} color="#FFF" /></TouchableOpacity>
+            <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()}>
+                <Ionicons name="arrow-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+            <View style={styles.headerButton}>
+                <MaterialCommunityIcons 
+                    name={isConnected ? "wifi" : "wifi-off"} 
+                    size={22} 
+                    color={isConnected ? "#4CAF50" : "#F44336"}
+                />
+            </View>
+            <TouchableOpacity style={styles.headerButton}>
+                <Ionicons name="keypad-outline" size={24} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerButton}>
+                <Ionicons name="settings-outline" size={22} color="#FFF" />
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </View>
@@ -178,18 +181,16 @@ export default function GamepadScreen({ route, navigation }) {
   );
 }
 
-// --- Styles (Unchanged) ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#3E3E3E' },
   headerSafeArea: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' },
-  headerContainer: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'rgba(28, 28, 30, 0.7)', borderRadius: 25, flexDirection: 'row' },
-  headerButton: { marginHorizontal: 10 },
-  buttonText: { color: '#E5E5E7', fontSize: 20, fontWeight: '600' },
+  headerContainer: { marginTop: 4, paddingHorizontal: 10, paddingVertical: 10, backgroundColor: 'rgba(28, 28, 30, 0.7)', borderRadius: 20, flexDirection: 'row' },
+  headerButton: { marginHorizontal: 10, justifyContent: 'center', alignItems: 'center' },
+  buttonText: { color: '#E5E5E7', fontSize: 20, fontWeight: '600', textAlign: 'center' },
   actionButton: { borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.7)', borderRadius: 99, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' },
   shoulderButton: { borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.7)', borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' },
-  joystickBase: { backgroundColor: '#525252', borderRadius: 99, justifyContent: 'center', alignItems: 'center' },
+  joystickBase: { backgroundColor: 'rgba(82, 82, 82, 0.8)', borderRadius: 99, justifyContent: 'center', alignItems: 'center' },
   joystickStick: { backgroundColor: '#D1D1D6', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', borderRadius: 50 },
   floatingButton: { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.7)', borderRadius: 99 },
   dpadShape: { borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.7)', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 8 },
-  joystickDraggableArea: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
 });

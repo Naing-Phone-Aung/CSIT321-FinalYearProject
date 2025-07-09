@@ -8,7 +8,6 @@ import { useConnection } from '../context/useConnection';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// This is the white frame overlay component
 const ScannerOverlay = () => (
   <View style={styles.overlay}>
     <View style={styles.unfocusedContainer}></View>
@@ -121,7 +120,6 @@ const styles = StyleSheet.create({
   },
   unfocusedContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   focusedContainer: {
     flex: 6,
