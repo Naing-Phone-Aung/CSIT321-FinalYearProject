@@ -15,7 +15,6 @@ TestResults/
 *.nupkg
 
 ## User-specific files
-*.user
 *.userosscache
 *.suo
 *.sln.docstates
