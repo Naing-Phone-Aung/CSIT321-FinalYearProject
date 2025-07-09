@@ -171,7 +171,7 @@ export default function GamepadScreen({ route, navigation }) {
             <TouchableOpacity style={styles.headerButton}>
                 <Ionicons name="keypad-outline" size={24} color="#FFF" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton}>
+            <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('GamepadSetting', {layout: layout})}>
                 <Ionicons name="settings-outline" size={22} color="#FFF" />
             </TouchableOpacity>
           </View>
