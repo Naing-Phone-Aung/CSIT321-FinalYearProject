@@ -13,8 +13,8 @@ export const createDefaultLayout = () => ({
     { id: 'dpad-down', type: 'dpad-down', x: 38, y: 65, size: 13 },
     { id: 'dpad-left', type: 'dpad-left', x: 30, y: 55, size: 13 },
     { id: 'dpad-right', type: 'dpad-right', x: 46, y: 55, size: 13 },
-    { id: 'btn_lt', type: 'shoulder', label: 'LT', x: 11, y: 15, width: 18, height: 16 },
-    { id: 'btn_lb', type: 'shoulder', label: 'LB', x: 13, y: 34, width: 18, height: 16 },
+    { id: 'btn_lt', type: 'shoulder', label: 'LT', x: 11, y: 15, width: 11, height: 14 },
+    { id: 'btn_lb', type: 'shoulder', label: 'LB', x: 13, y: 34, width: 11, height: 14 },
 
     // --- Right Side ---
     { id: 'joy_r', type: 'joystick', x: 62, y: 70, size: 38 },
@@ -24,8 +24,8 @@ export const createDefaultLayout = () => ({
     { id: 'btn_a', type: 'action', label: 'A', x: 84, y: 75, size: 12 },
     { id: 'btn_x', type: 'action', label: 'X', x: 77, y: 60, size: 12 },
 
-    { id: 'btn_rt', type: 'shoulder', label: 'RT', x: 89, y: 15, width: 18, height: 16 },
-    { id: 'btn_rb', type: 'shoulder', label: 'RB', x: 87, y: 32, width: 18, height: 16 },
+    { id: 'btn_rt', type: 'shoulder', label: 'RT', x: 89, y: 15, width: 11, height: 14 },
+    { id: 'btn_rb', type: 'shoulder', label: 'RB', x: 87, y: 32, width: 11, height: 14 },
     
     // --- Center Buttons ---
     { id: 'menu', type: 'menu', x: 45, y: 28, size: 9 },

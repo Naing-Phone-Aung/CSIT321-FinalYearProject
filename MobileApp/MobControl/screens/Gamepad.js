@@ -1,16 +1,20 @@
-import React, { useEffect, useCallback, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import React, { useEffect, useCallback, useRef, useState } from 'react'; // Import useState
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Alert, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { useConnection } from '../context/useConnection';
+import * as NavigationBar from 'expo-navigation-bar';
+import { useFocusEffect } from '@react-navigation/native'; // Import the focus effect hook
+import { loadLayouts } from '../services/LayoutService'; // Import the layout loader
 
 const window = Dimensions.get('window');
 const landscapeWidth = Math.max(window.width, window.height);
 const landscapeHeight = Math.min(window.width, window.height);
 
+// --- All the component definitions (Joystick, GameButton, etc.) remain the same ---
 const Joystick = ({ style, onMove, buttonId }) => {
   const joystickSize = style.width;
   const stickSize = joystickSize * 0.55;
@@ -53,7 +57,6 @@ const Joystick = ({ style, onMove, buttonId }) => {
     </GestureDetector>
   );
 };
-
 const GameButton = ({ style, children, onStateChange, buttonId }) => {
   const isPressed = useSharedValue(false);
   const tapGesture = Gesture.Manual()
@@ -83,51 +86,91 @@ const GameButton = ({ style, children, onStateChange, buttonId }) => {
     </GestureDetector>
   );
 };
-
 const ActionButton = (props) => <GameButton {...props} style={[styles.actionButton, props.style]}><Text style={styles.buttonText}>{props.label}</Text></GameButton>;
 const ShoulderButton = (props) => <GameButton {...props} style={[styles.shoulderButton, props.style]}><Text style={styles.buttonText}>{props.label}</Text></GameButton>;
 const DpadButton = (props) => <GameButton {...props} style={[styles.dpadShape, props.style]}><Ionicons name={`caret-${props.direction}-outline`} size={24} color="#FFF" /></GameButton>;
 const FloatingButton = (props) => <GameButton {...props} style={[styles.floatingButton, props.style]}><Feather name={props.iconName} size={20} color="#FFF" /></GameButton>;
-
+// --- End of component definitions ---
 
 export default function GamepadScreen({ route, navigation }) {
-  const { layout } = route.params;
+  // Use state for the layout so it can be refreshed
+  const [activeLayout, setActiveLayout] = useState(route.params.layout);
+
   const { sendMessage, connectionStatus } = useConnection();
   const isConnected = connectionStatus === 'connected';
   const wasConnected = useRef(isConnected);
+  const navBarTimeout = useRef(null);
+
+  // --- THIS IS THE NEW REFRESH LOGIC ---
+  useFocusEffect(
+    useCallback(() => {
+      const reloadLayout = async () => {
+        try {
+          const allLayouts = await loadLayouts();
+          const freshLayout = allLayouts.find(l => l.id === activeLayout.id);
+          if (freshLayout) {
+            setActiveLayout(freshLayout);
+            console.log("Gamepad layout reloaded to show latest changes.");
+          }
+        } catch (error) {
+          console.error("Failed to reload gamepad layout:", error);
+        }
+      };
+      reloadLayout();
+    }, []) // Empty dependency array is correct here for useFocusEffect's callback
+  );
 
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+    NavigationBar.setBehaviorAsync('inset-swipe');
+    
+    StatusBar.setHidden(true, 'none');
+    NavigationBar.setVisibilityAsync('hidden');
+
+    const subscription = NavigationBar.addVisibilityListener(({ visibility }) => {
+      if (visibility === 'visible') {
+        if (navBarTimeout.current) clearTimeout(navBarTimeout.current);
+        navBarTimeout.current = setTimeout(() => {
+          StatusBar.setHidden(true, 'fade');
+          NavigationBar.setVisibilityAsync('hidden');
+        }, 2500);
+      }
+    });
+
     if (wasConnected.current && !isConnected) {
-      console.log("Connection lost while on Gamepad screen. Navigating back.");
-      Alert.alert("Connection Lost", "The connection to the PC was lost.", [
-          { text: "OK", onPress: () => navigation.goBack() }
-      ]);
+      Alert.alert("Connection Lost", "The connection to the PC was lost.", [{ text: "OK", onPress: () => navigation.goBack() }]);
     }
     wasConnected.current = isConnected;
-    return () => ScreenOrientation.unlockAsync();
+
+    return () => {
+      ScreenOrientation.unlockAsync();
+      StatusBar.setHidden(false, 'none');
+      NavigationBar.setVisibilityAsync('visible');
+      subscription.remove();
+      if (navBarTimeout.current) clearTimeout(navBarTimeout.current);
+    };
   }, [isConnected, navigation]);
 
   const handleButtonStateChange = useCallback((buttonId, isPressed) => {
     const data = { type: 'button', id: buttonId, pressed: isPressed };
-    console.log(`[DATA] Sending: ${JSON.stringify(data)}`);
-    if (isConnected) {
-      sendMessage(data);
-    }
+    if (isConnected) sendMessage(data);
   }, [isConnected, sendMessage]);
   
   const handleJoystickMove = useCallback((joystickId, position) => {
     const data = { type: 'joystick', id: joystickId, x: position.x, y: position.y };
-    console.log(`[DATA] Sending: ${JSON.stringify(data)}`);
-    if (isConnected) {
-      sendMessage(data);
-    }
+    if (isConnected) sendMessage(data);
   }, [isConnected, sendMessage]);
 
   const renderButton = (button) => {
-    const baseSize = landscapeHeight;
-    const width = (button.width || button.size) / 100 * baseSize;
-    const height = (button.height || button.size) / 100 * baseSize;
+    let width, height;
+    if (button.type.startsWith('dpad-') || ['joystick', 'action', 'menu', 'clone'].includes(button.type)) {
+      const diameter = (button.size / 100) * landscapeHeight;
+      width = diameter;
+      height = diameter;
+    } else {
+      width = (button.width / 100) * landscapeWidth;
+      height = (button.height / 100) * landscapeHeight;
+    }
     const absoluteStyle = {
       position: 'absolute',
       left: (button.x / 100) * landscapeWidth - width / 2,
@@ -154,7 +197,8 @@ export default function GamepadScreen({ route, navigation }) {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={styles.container}>
         <View style={StyleSheet.absoluteFill}>
-          {layout.buttons.map(renderButton)}
+          {/* Use the state variable to render the buttons */}
+          {activeLayout.buttons.map(renderButton)}
         </View>
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.headerContainer}>
@@ -171,7 +215,7 @@ export default function GamepadScreen({ route, navigation }) {
             <TouchableOpacity style={styles.headerButton}>
                 <Ionicons name="keypad-outline" size={24} color="#FFF" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('GamepadSetting', {layout: layout})}>
+            <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('GamepadSetting', {layout: activeLayout})}>
                 <Ionicons name="settings-outline" size={22} color="#FFF" />
             </TouchableOpacity>
           </View>

@@ -1,126 +1,227 @@
-// screens/GamepadSetting.js
-
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions, SafeAreaView, ActivityIndicator  } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
-import { useSettings } from '../context/SettingsContext';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react'; // Removed useRef, it's not needed now
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, Alert } from 'react-native'; // Added Alert
+import DraggableLayoutPreview from '../components/DraggableLayoutPreview';
 import LayoutPreview from '../components/LayoutPreview';
+import { useNavigation } from '@react-navigation/native';
+import Slider from '@react-native-community/slider';
+import { loadLayouts, saveLayouts } from '../services/LayoutService';
+
+const MENU_ITEMS = ['Move', 'Size', 'Opacity', 'Mapping', 'Reset'];
 
 const window = Dimensions.get('window');
-const previewHeight = window.height * 0.8;
+const deviceWidth = Math.max(window.width, window.height);
+const deviceHeight = Math.min(window.width, window.height);
+const deviceAspectRatio = deviceWidth / deviceHeight;
 
 export default function GamepadSettingScreen({ route }) {
   const navigation = useNavigation();
-  const { theme } = useSettings();
-  const { layout } = route.params; 
+  
+  const [currentLayout, setCurrentLayout] = useState(route.params.layout);
+  const [activeMenu, setActiveMenu] = useState('Move');
+  const [wrapperSize, setWrapperSize] = useState(null);
+  
+  const [sizeValue, setSizeValue] = useState(1);
+  const [opacityValue, setOpacityValue] = useState(1);
 
-  const [previewSize, setPreviewSize] = useState(null);
-
+  // This is the new, correct way to save the layout on exit.
   useEffect(() => {
-    // ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-  }, []);
+    const unsubscribe = navigation.addListener('beforeRemove', async (e) => {
+      // Prevent the user from leaving the screen immediately
+      e.preventDefault(); 
+
+      try {
+        const allLayouts = await loadLayouts();
+        // Use the most recent 'currentLayout' from state here
+        const updatedLayouts = allLayouts.map(l =>
+          l.id === currentLayout.id ? currentLayout : l
+        );
+        await saveLayouts(updatedLayouts);
+        console.log(`Layout "${currentLayout.name}" saved successfully!`);
+        
+        // Now that saving is complete, allow the navigation to proceed
+        navigation.dispatch(e.data.action);
+
+      } catch (error) {
+        console.error("Failed to save layout on exit:", error);
+        Alert.alert(
+          "Save Failed", 
+          "Could not save your layout changes. Do you still want to exit?",
+          [
+            { text: "Stay", style: "cancel", onPress: () => {} },
+            { text: "Exit Anyway", style: "destructive", onPress: () => navigation.dispatch(e.data.action) },
+          ]
+        );
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, currentLayout]); // CRITICAL: This effect re-runs every time 'currentLayout' changes.
+
+  const handleMenuPress = (item) => {
+    setActiveMenu(item);
+  };
+  
+  const handleButtonMove = (buttonId, newPosition) => {
+    setCurrentLayout(prevLayout => {
+      const updatedButtons = prevLayout.buttons.map(b => 
+        b.id === buttonId ? { ...b, x: newPosition.x, y: newPosition.y } : b
+      );
+      return { ...prevLayout, buttons: updatedButtons };
+    });
+  };
+
+  const getPreviewSize = () => {
+    if (!wrapperSize) return null;
+    const { width: wrapperWidth, height: wrapperHeight } = wrapperSize;
+    const wrapperAspectRatio = wrapperWidth / wrapperHeight;
+    let previewWidth, previewHeight;
+    if (wrapperAspectRatio > deviceAspectRatio) {
+      previewHeight = wrapperHeight;
+      previewWidth = wrapperHeight * deviceAspectRatio;
+    } else {
+      previewWidth = wrapperWidth;
+      previewHeight = wrapperWidth / deviceAspectRatio;
+    }
+    return { width: previewWidth, height: previewHeight };
+  };
+
+  const previewSize = getPreviewSize();
+
+  const renderMenuBar = () => {
+    const EditingMenu = ({ title, value, onValueChange, min, max }) => (
+      <View style={styles.editingMenuBar}>
+        <View style={[styles.menuButton, styles.activeMenuButton]}>
+          <Text style={styles.menuButtonText}>{title}</Text>
+        </View>
+        <Slider
+          style={styles.slider}
+          minimumValue={min}
+          maximumValue={max}
+          minimumTrackTintColor="#FFFFFF"
+          maximumTrackTintColor="#A0A0A0"
+          thumbTintColor="#FFFFFF"
+          value={value}
+          onValueChange={onValueChange}
+        />
+        <TouchableOpacity 
+          style={styles.menuButton} 
+          onPress={() => setActiveMenu('Move')}
+        >
+          <Text style={styles.menuButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+
+    if (activeMenu === 'Size') {
+      return <EditingMenu title="Size" value={sizeValue} onValueChange={setSizeValue} min={0.5} max={1.5} />;
+    }
+    
+    if (activeMenu === 'Opacity') {
+      return <EditingMenu title="Opacity" value={opacityValue} onValueChange={setOpacityValue} min={0.1} max={1.0} />;
+    }
+
+    return (
+      <View style={styles.mainMenuBar}>
+        {MENU_ITEMS.map((item) => (
+          <TouchableOpacity 
+            key={item} 
+            style={[styles.menuButton, activeMenu === item && styles.activeMenuButton]}
+            onPress={() => handleMenuPress(item)}
+          >
+            <Text style={styles.menuButtonText}>{item}</Text>
+          </TouchableOpacity>
+        ))}
+        {/* We use navigation.goBack() which will trigger our 'beforeRemove' listener */}
+        <TouchableOpacity style={styles.menuButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.menuButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.menuBar, { backgroundColor: theme.colors.background }]}>
-        <TouchableOpacity style={styles.rectButton} onPress={() => console.log('Move')}>
-          <Text style={[styles.buttonText, { color: theme.colors.text }]}>Move</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.rectButton} onPress={() => console.log('Size')}>
-          <Text style={[styles.buttonText, { color: theme.colors.text }]}>Size</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.rectButton} onPress={() => console.log('Opacity')}>
-          <Text style={[styles.buttonText, { color: theme.colors.text }]}>Opacity</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.rectButton} onPress={() => console.log('Mapping')}>
-          <Text style={[styles.buttonText, { color: theme.colors.text }]}>Mapping</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.rectButton} onPress={() => console.log('Reset')}>
-          <Text style={[styles.buttonText, { color: theme.colors.text }]}>Reset</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.rectButton} onPress={() => navigation.goBack()}>
-          <Text style={[styles.buttonText, { color: theme.colors.text }]}>Back</Text>
-        </TouchableOpacity>
-      </View>
-
-    {/* Layout Preview */}
-      <View style={styles.layoutPreviewWrapper}>
-        <View
-          style={styles.layoutPreviewContainer}
-          onLayout={(event) => {
-            const { width, height } = event.nativeEvent.layout;
-            if (!previewSize || previewSize.width !== width || previewSize.height !== height) {
-              setPreviewSize({ width, height });
-            }
-          }}
+    <View style={styles.container}>
+      <SafeAreaView style={{ flex: 1 }}>
+        {renderMenuBar()}
+        <View 
+            style={styles.previewWrapper}
+            onLayout={(event) => {
+                const { width, height } = event.nativeEvent.layout;
+                if (!wrapperSize || wrapperSize.width !== width || wrapperSize.height !== height) {
+                    setWrapperSize({ width, height });
+                }
+            }}
         >
-          {previewSize && (
-            <LayoutPreview layout={layout} size={previewSize} />
-          )}
+            {previewSize && (
+              <View style={[styles.previewContainer, { width: previewSize.width, height: previewSize.height }]}>
+                {activeMenu === 'Move' ? (
+                  <DraggableLayoutPreview
+                    layout={currentLayout}
+                    size={previewSize}
+                    onButtonMove={handleButtonMove}
+                  />
+                ) : (
+                  <LayoutPreview layout={currentLayout} size={previewSize} />
+                )}
+              </View>
+            )}
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
-// Stylesheet
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  //contentContainer: { padding: 20 },
-  
-  menuBar: {
+  container: {
+    flex: 1,
+    backgroundColor: '#3E3E3E',
+  },
+  mainMenuBar: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingTop: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
-  },
-
-  rectButton: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    borderRadius: 6,
-    marginHorizontal: 4,
+    paddingHorizontal: 12,
+  },
+  editingMenuBar: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
-
-  buttonText: {
-    fontSize: 14,
+  menuButton: {
+    backgroundColor: '#4F4F4F',
+    width: 120,
+    paddingVertical: 12,
+    borderRadius: 8,
+    margin: 6,
+    alignItems: 'center',
+  },
+  activeMenuButton: {
+    backgroundColor: '#6E6E6E',
+  },
+  menuButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '500',
   },
-  
-  headerTitle: { 
-    fontSize: 24, 
-    textAlign: 'center', 
-    marginBottom: 20 
+  slider: {
+    width: '50%',
+    height: 40,
+    marginHorizontal: 6,
   },
-  
   previewWrapper: {
-    width: '100%',
-    backgroundColor: '#3E3E3E', 
-    borderRadius: 12,
-    overflow: 'hidden',
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 18, 
   },
-
-  layoutPreviewWrapper: { marginBottom: 30, paddingHorizontal: 10 },
-  layoutPreviewContainer: { 
-    width: '70%',
-    aspectRatio: 16 / 9, 
-    alignSelf: 'center', 
-    marginTop: 10, 
+  previewContainer: {
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
 });

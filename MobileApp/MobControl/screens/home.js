@@ -1,15 +1,19 @@
-// screens/home.js
-
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react'; // Import useCallback
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext';
-import { useNavigation } from '@react-navigation/native';
+// Import useFocusEffect
+import { useNavigation, useFocusEffect } from '@react-navigation/native'; 
 import { loadLayouts, saveLayouts, createDefaultLayout } from '../services/LayoutService';
 import EditLayoutModal from '../components/EditLayoutName';
 import ConfirmationModal from '../components/Confirmation';
-import LayoutPreview from '../components/LayoutPreview'; 
+import LayoutPreview from '../components/LayoutPreview';
+
+const window = Dimensions.get('window');
+const landscapeWidth = Math.max(window.width, window.height);
+const landscapeHeight = Math.min(window.width, window.height);
+const deviceAspectRatio = landscapeWidth / landscapeHeight;
 
 const LayoutCard = ({ layout, onEdit, onDelete, navigation }) => {
   const { theme } = useSettings();
@@ -17,8 +21,8 @@ const LayoutCard = ({ layout, onEdit, onDelete, navigation }) => {
 
   return (
     <TouchableOpacity onPress={() => navigation.navigate('Gamepad', { layout })}>
-      <View 
-        style={styles.previewWrapper}
+      <View
+        style={[styles.previewWrapper, { aspectRatio: deviceAspectRatio }]}
         onLayout={(event) => {
           const { width, height } = event.nativeEvent.layout;
           if (!previewSize || previewSize.width !== width || previewSize.height !== height) {
@@ -27,13 +31,13 @@ const LayoutCard = ({ layout, onEdit, onDelete, navigation }) => {
         }}
       >
         {previewSize && (
-          <LayoutPreview 
-            layout={layout} 
+          <LayoutPreview
+            layout={layout}
             size={previewSize}
           />
         )}
       </View>
-      
+
       <View style={styles.cardActions}>
         <Text style={[styles.layoutName, { color: theme.colors.text }]}>{layout.name}</Text>
         <View style={{ flexDirection: 'row' }}>
@@ -51,7 +55,6 @@ const LayoutCard = ({ layout, onEdit, onDelete, navigation }) => {
   );
 };
 
-
 export default function HomeScreen() {
   const navigation = useNavigation();
   const { theme } = useSettings();
@@ -63,19 +66,23 @@ export default function HomeScreen() {
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deletingLayout, setDeletingLayout] = useState(null);
 
-  useEffect(() => {
-    const fetchLayouts = async () => {
-      try {
-        const savedLayouts = await loadLayouts();
-        setLayouts(savedLayouts);
-      } catch (error) {
-        console.error("Failed to fetch layouts from storage:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchLayouts();
-  }, []);
+  // --- THIS IS THE CORRECTED DATA FETCHING LOGIC ---
+  useFocusEffect(
+    useCallback(() => {
+      const fetchLayouts = async () => {
+        setIsLoading(true); // Show loader while fetching
+        try {
+          const savedLayouts = await loadLayouts();
+          setLayouts(savedLayouts);
+        } catch (error) {
+          console.error("Failed to fetch layouts from storage:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchLayouts();
+    }, [])
+  );
 
   const handleOpenAddModal = () => setAddModalVisible(true);
   const handleCloseAddModal = () => setAddModalVisible(false);
@@ -135,19 +142,18 @@ export default function HomeScreen() {
         initialValue="My New Layout"
         title="Create New Layout"
         message="Please enter a name for your new layout."
-      />      
+      />
       <EditLayoutModal
         visible={isEditModalVisible}
         onClose={handleCloseEditModal}
         onSave={handleSaveLayoutName}
         initialValue={editingLayout?.name}
-      />      
-    <ConfirmationModal visible={isDeleteModalVisible} onClose={handleCloseDeleteModal} onConfirm={handleConfirmDelete} title="Delete Layout" message={`Are you sure you want to delete "${deletingLayout?.name}"?`} confirmButtonText="Delete" confirmButtonColor="#D32F2F" />
+      />
+      <ConfirmationModal visible={isDeleteModalVisible} onClose={handleCloseDeleteModal} onConfirm={handleConfirmDelete} title="Delete Layout" message={`Are you sure you want to delete "${deletingLayout?.name}"?`} confirmButtonText="Delete" confirmButtonColor="#D32F2F" />
     </SafeAreaView>
   );
 }
 
-// --- Complete Stylesheet ---
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   contentContainer: { padding: 20 },
@@ -156,18 +162,15 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
   newLayoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8 },
   newLayoutButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
-
   previewWrapper: {
     width: '100%',
-    aspectRatio: 16 / 9,
   },
-  cardActions: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginTop: 12 
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12
   },
-
   layoutName: { fontSize: 16, fontWeight: '500' },
   editButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
   deleteButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, marginLeft: 10 },
