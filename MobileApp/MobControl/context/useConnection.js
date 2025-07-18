@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Alert } from 'react-native';
 import dgram from 'react-native-udp';
 import * as Device from 'expo-device';
+import { useNavigation } from '@react-navigation/native';
 
 const DiscoveryPort = 15000;
 const ConnectionContext = createContext(null);
@@ -15,6 +16,7 @@ export const useConnection = () => {
 };
 
 export const ConnectionProvider = ({ children }) => {
+  const navigation = useNavigation();
   const [discoveredPCs, setDiscoveredPCs] = useState([]);
   const [isScanning, setIsScanning] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
@@ -25,9 +27,7 @@ export const ConnectionProvider = ({ children }) => {
 
   const addDiscoveredPC = useCallback((pc) => {
     setDiscoveredPCs(prevPCs => {
-      if (prevPCs.some(p => p.address === pc.address)) {
-        return prevPCs;
-      }
+      if (prevPCs.some(p => p.address === pc.address)) return prevPCs;
       return [...prevPCs, pc];
     });
   }, []);
@@ -49,9 +49,7 @@ export const ConnectionProvider = ({ children }) => {
       socket.bind(DiscoveryPort);
       if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
       scanTimeoutRef.current = setTimeout(() => setIsScanning(false), 5000);
-    } catch(err) {
-      setIsScanning(false);
-    }
+    } catch(err) { setIsScanning(false); }
   }, [addDiscoveredPC]);
 
   useEffect(() => {
@@ -73,70 +71,86 @@ export const ConnectionProvider = ({ children }) => {
     startDiscovery();
   }, [startDiscovery]);
 
-  const connectToPC = useCallback((pc) => {
-    if (connectionStatus !== 'disconnected') {
-      console.log(`[WS-CLIENT] Ignoring connection attempt. Status is already: ${connectionStatus}`);
-      return;
+  const verifyWithOtp = useCallback((otp) => {
+    if (webSocketRef.current?.readyState === WebSocket.OPEN) {
+        webSocketRef.current.send(JSON.stringify({ type: 'otp_verify', otp }));
+    } else {
+        Alert.alert("Connection Error", "Could not send OTP. Please try connecting again.");
     }
-
-    console.log(`[WS-CLIENT] Attempting to connect to ${pc.name} at ${pc.address}`);
-    setConnectionStatus('connecting');
-    setConnectedPCInfo(pc);
-
-    if (webSocketRef.current) {
-        webSocketRef.current.close();
-    }
-
-    const ws = new WebSocket(pc.address);
-    webSocketRef.current = ws;
-
-    ws.onopen = () => {
-      console.log("[WS-CLIENT] Event: ONOPEN - Connection successful.");
-      setConnectionStatus('connected');
-      ws.send(Device.deviceName || 'Mobile Device');
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        if (message.type === 'ping') {
-          console.log('[WS-CLIENT] Received PING from server. Responding with PONG.');
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'pong' }));
-          }
-        }
-      } catch (error) {
-        console.log('[WS-CLIENT] Received non-JSON message:', event.data);
-      }
-    };
-
-    ws.onerror = (e) => {
-      console.error(`[WS-CLIENT] Event: ONERROR - ${e.message}`);
-      setConnectionStatus('disconnected');
-      setConnectedPCInfo(null);
-      webSocketRef.current = null;
-    };
-
-    ws.onclose = (e) => {
-      console.warn(`[WS-CLIENT] Event: ONCLOSE - Code: ${e.code}, Reason: '${e.reason}'`);
-      setConnectionStatus('disconnected');
-      setConnectedPCInfo(null);
-      webSocketRef.current = null;
-    };
-  }, [connectionStatus]); 
+  }, []);
 
   const disconnect = useCallback(() => {
-    console.log("[WS-CLIENT] User initiated disconnect command.");
     if (webSocketRef.current) {
-        webSocketRef.current.close(1000, "User disconnected");
+        if (webSocketRef.current.readyState === WebSocket.OPEN || webSocketRef.current.readyState === WebSocket.CONNECTING) {
+            webSocketRef.current.close(1000, "User disconnected");
+        }
     }
     setConnectionStatus('disconnected');
     setConnectedPCInfo(null);
     webSocketRef.current = null;
   }, []);
 
+  // ----- THIS IS THE CORRECTED FUNCTION -----
+  const connectToPC = useCallback((pc) => {
+    if (connectionStatus !== 'disconnected') return;
+
+    // The address we use for the actual WebSocket connection (may contain '/qr')
+    const connectionAddress = pc.address;
+
+    // The clean PC info object we store in state (guaranteed to NOT have '/qr')
+    const pcInfoForState = {
+        ...pc,
+        address: pc.address.replace('/qr', ''),
+    };
+    
+    setConnectionStatus('connecting');
+    setConnectedPCInfo(pcInfoForState); // Use the clean address for UI state
+
+    if (webSocketRef.current) webSocketRef.current.close();
+    
+    const ws = new WebSocket(connectionAddress); // Connect using the original address
+    webSocketRef.current = ws;
+
+    ws.onopen = () => console.log("[WS-CLIENT] Connection opened, pending verification.");
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        switch(message.type) {
+            case 'ping':
+                ws.send(JSON.stringify({ type: 'pong' }));
+                break;
+            case 'connection_success':
+                setConnectionStatus('connected');
+                ws.send(Device.deviceName || 'Mobile Device');
+                navigation.navigate('Connect', { screen: 'ConnectMain' });
+                break;
+            case 'otp_failure':
+                Alert.alert("Verification Failed", "The OTP you entered is incorrect. Please try again.");
+                disconnect();
+                break;
+        }
+      } catch (error) { console.log('[WS-CLIENT] Received non-JSON message:', event.data); }
+    };
+
+    ws.onerror = (e) => console.error(`[WS-CLIENT] Error: ${e.message}`);
+
+    ws.onclose = (e) => {
+      console.warn(`[WS-CLIENT] Closed - Code: ${e.code}, Reason: '${e.reason}'`);
+      if (e.code !== 1000 && connectionStatus === 'connected') {
+        Alert.alert(
+          "Connection Lost", "The connection to the PC was terminated.",
+          [{ text: "OK", onPress: () => navigation.navigate('Connect') }]
+        );
+      }
+      setConnectionStatus('disconnected');
+      setConnectedPCInfo(null);
+      webSocketRef.current = null;
+    };
+  }, [connectionStatus, navigation, disconnect]);
+
   const sendMessage = useCallback((data) => {
-    if (webSocketRef.current && webSocketRef.current.readyState === WebSocket.OPEN) {
+    if (webSocketRef.current?.readyState === WebSocket.OPEN) {
       webSocketRef.current.send(JSON.stringify(data));
     }
   }, []);
@@ -150,7 +164,8 @@ export const ConnectionProvider = ({ children }) => {
     disconnect,
     rescan,
     sendMessage,
-  }), [discoveredPCs, isScanning, connectionStatus, connectedPCInfo, connectToPC, disconnect, rescan, sendMessage]);
+    verifyWithOtp,
+  }), [discoveredPCs, isScanning, connectionStatus, connectedPCInfo, connectToPC, disconnect, rescan, sendMessage, verifyWithOtp]);
 
   return (
     <ConnectionContext.Provider value={value}>

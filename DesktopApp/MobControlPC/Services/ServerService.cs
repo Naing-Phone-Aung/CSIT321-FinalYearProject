@@ -14,6 +14,7 @@ using Newtonsoft.Json.Linq;
 using Nefarius.ViGEm.Client;
 using Nefarius.ViGEm.Client.Targets;
 using Nefarius.ViGEm.Client.Targets.Xbox360;
+using Windows.Networking.Connectivity;
 
 namespace MobControlPC.Services
 {
@@ -26,6 +27,8 @@ namespace MobControlPC.Services
         public double? Y { get; set; }
     }
 
+    public enum ConnectionMethod { Manual, QRCode } // NEW: Enum to differentiate connection types
+
     public class ClientInfo
     {
         public Guid Id { get; set; }
@@ -33,6 +36,8 @@ namespace MobControlPC.Services
         public string IpAddress { get; set; } = "0.0.0.0";
         public IXbox360Controller? Controller { get; set; }
         public DateTime LastHeartbeat { get; set; }
+        public bool IsVerified { get; set; } = false;
+        public ConnectionMethod Method { get; set; } = ConnectionMethod.Manual; // NEW: Track how client connected
     }
 
     public class ServerService : INotifyPropertyChanged, IDisposable
@@ -41,8 +46,9 @@ namespace MobControlPC.Services
         public string DeviceName { get; private set; }
         public string ServerAddress { get; private set; }
         public string? QrCodeImage { get; private set; }
+        public string CurrentOtp { get; private set; } = "------";
         public List<ClientInfo> ConnectedClients { get; private set; } = new();
-        public bool IsAnyClientConnected => ConnectedClients.Any();
+        public bool IsAnyClientConnected => ConnectedClients.Any(c => c.IsVerified);
         public event PropertyChangedEventHandler? PropertyChanged;
         
         private WebSocketServer? _server;
@@ -52,8 +58,10 @@ namespace MobControlPC.Services
         private const int DiscoveryPort = 15000;
         private CancellationTokenSource? _discoveryCts;
 
-        // NEW: Heartbeat and Timeout mechanism fields
         private Timer? _heartbeatTimer;
+        private Timer? _otpTimer;
+        private readonly Random _random = new Random();
+
         private readonly TimeSpan _clientTimeoutDuration = TimeSpan.FromSeconds(15); 
         private readonly TimeSpan _pingInterval = TimeSpan.FromSeconds(5); 
 
@@ -62,40 +70,39 @@ namespace MobControlPC.Services
             DeviceName = Environment.MachineName;
             LocalIP = GetLocalIPAddress() ?? "127.0.0.1";
             ServerAddress = $"ws://{LocalIP}:8181";
-            
-            try 
-            { 
-                _vigemClient = new ViGEmClient(); 
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"FATAL: ViGEmBus driver not found or failed to initialize. Error: {ex.Message}");
-                _vigemClient = null;
-            }
+
+            try { _vigemClient = new ViGEmClient(); }
+            catch (Exception ex) { Console.WriteLine($"FATAL: ViGEmBus driver not found. Error: {ex.Message}"); _vigemClient = null; }
         }
 
         public void Start()
         {
-            if (_vigemClient == null) 
-            {
-                Console.WriteLine("Cannot start server because ViGEm client is not available.");
-                return; 
-            }
+            if (_vigemClient == null) return;
             try
             {
                 GenerateQrCode();
                 StartWebSocketServer();
                 StartUdpBroadcast();
                 StartHeartbeatCheck();
+                StartOtpGeneration();
             }
             catch (Exception ex) { Console.WriteLine($"FATAL: Could not start services. Reason: {ex.Message}"); }
         }
         
+        private void StartOtpGeneration() => _otpTimer = new Timer(GenerateNewOtp, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+
+        private void GenerateNewOtp(object? state)
+        {
+            CurrentOtp = _random.Next(100000, 999999).ToString();
+            Console.WriteLine($"[OTP] New OTP Generated: {CurrentOtp}");
+            NotifyStateChanged();
+        }
+
         private void StartWebSocketServer()
         {
             _server = new WebSocketServer($"ws://0.0.0.0:8181");
             _server.RestartAfterListenError = true;
-            Fleck.FleckLog.Level = Fleck.LogLevel.Warn;
+            FleckLog.Level = LogLevel.Warn;
             _server.Start(socket =>
             {
                 socket.OnOpen = () => HandleClientConnected(socket);
@@ -105,128 +112,142 @@ namespace MobControlPC.Services
             Console.WriteLine($"WebSocket Server started at {ServerAddress}");
         }
 
+        // --- MODIFIED METHOD: Now checks the connection path for QR code connections ---
         private void HandleClientConnected(IWebSocketConnection socket)
         {
-            Console.WriteLine($"[WS-SERVER] Event: OnOpen - Client connected with ID: {socket.ConnectionInfo.Id}");
-            
-            if (_vigemClient == null) 
-            {
-                Console.WriteLine("[WS-SERVER] ERROR: ViGEm client is null. Cannot create controller.");
-                socket.Close(); 
-                return;
-            }
-            try
-            {
-                var controller = _vigemClient.CreateXbox360Controller();
-                controller.Connect();
-                Console.WriteLine($"[WS-SERVER] SUCCESS: Virtual controller created for client {socket.ConnectionInfo.Id}.");
-                
-                var clientInfo = new ClientInfo 
-                { 
-                    Id = socket.ConnectionInfo.Id, 
-                    IpAddress = socket.ConnectionInfo.ClientIpAddress, 
-                    Controller = controller,
-                    LastHeartbeat = DateTime.UtcNow 
-                };
+            Console.WriteLine($"[WS-SERVER] Client connecting from path: '{socket.ConnectionInfo.Path}'");
+            var isQrConnection = socket.ConnectionInfo.Path.Equals("/qr", StringComparison.OrdinalIgnoreCase);
 
-                _clientSockets.Add(clientInfo.Id, socket);
-                ConnectedClients.Add(clientInfo);
+            var clientInfo = new ClientInfo 
+            { 
+                Id = socket.ConnectionInfo.Id, 
+                IpAddress = socket.ConnectionInfo.ClientIpAddress,
+                Method = isQrConnection ? ConnectionMethod.QRCode : ConnectionMethod.Manual,
+                IsVerified = isQrConnection, // Auto-verify if connected via QR
+                Controller = null,
+                LastHeartbeat = DateTime.UtcNow 
+            };
+            
+            _clientSockets.Add(clientInfo.Id, socket);
+            ConnectedClients.Add(clientInfo);
+
+            // If it's a QR connection, create the controller and notify success immediately
+            if (isQrConnection)
+            {
+                Console.WriteLine($"[WS-SERVER] QR Connection detected. Auto-verifying client {clientInfo.Id}.");
+                try
+                {
+                    var controller = _vigemClient.CreateXbox360Controller();
+                    controller.Connect();
+                    clientInfo.Controller = controller;
+                    socket.Send("{\"type\":\"connection_success\"}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[WS-SERVER] FATAL ERROR: Failed to create virtual controller for QR client. Reason: {ex}");
+                    clientInfo.IsVerified = false;
+                }
+            }
+            NotifyStateChanged();
+        }
+
+        private void HandleClientDisconnected(IWebSocketConnection socket)
+        {
+            var client = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
+            if (client != null)
+            {
+                client.Controller?.Disconnect();
+                _clientSockets.Remove(client.Id);
+                ConnectedClients.RemoveAll(c => c.Id == client.Id);
                 NotifyStateChanged();
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[WS-SERVER] FATAL ERROR: Failed to create virtual controller. Reason: {ex}");
-                socket.Close(); 
-            }
         }
 
-// The NEW, CORRECT method
-private void HandleClientDisconnected(IWebSocketConnection socket)
-{
-    Console.WriteLine($"[WS-SERVER] Event: OnClose - Client disconnected with ID: {socket.ConnectionInfo.Id}");
-    var client = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
-    if (client != null)
-    {
-        if (client.Controller != null)
-        {
-            client.Controller.Disconnect();
-            Console.WriteLine($"[WS-SERVER] INFO: Virtual controller for client {client.Id} disconnected.");
-        }
-        _clientSockets.Remove(client.Id);
-        ConnectedClients.RemoveAll(c => c.Id == client.Id);
-        NotifyStateChanged();
-    }
-}
         private void HandleClientMessage(IWebSocketConnection socket, string message)
         {
             var client = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
             if (client == null) return;
             client.LastHeartbeat = DateTime.UtcNow;
 
-            if (message.Contains("\"type\":\"pong\""))
-            {
-                Console.WriteLine($"[WS-SERVER] Received Pong from {client.Id}");
-                return;
-            }
-
-            Console.WriteLine($"[WS-SERVER] Event: OnMessage - Received RAW message from client {socket.ConnectionInfo.Id}: {message}");
+            if (message.Contains("\"type\":\"pong\"")) return;
             
-            if (client.Controller == null) return;
-            
-            // Check for the initial device name message
             if (client.Name == "Unknown Device" && !message.StartsWith("{")) 
             { 
                 client.Name = message; 
-                Console.WriteLine($"[SERVER INFO] Client {client.Id} identified as: {client.Name}");
                 NotifyStateChanged();
                 return; 
             }
-            
+
             try
             {
-                var input = JsonConvert.DeserializeObject<GamepadInput>(message);
-                if (input == null) return;
+                var input = JObject.Parse(message);
+                string? type = input["type"]?.ToString();
 
-                switch (input.Type)
+                if (type == "otp_verify")
                 {
-                    case "button":
-                        HandleButtonInput(client.Controller, input);
-                        break;
-                    case "joystick":
-                        HandleJoystickInput(client.Controller, input);
-                        break;
+                    HandleOtpVerification(client, input["otp"]?.ToString());
+                    return;
+                }
+                if (!client.IsVerified || client.Controller == null) return;
+                var gamepadInput = input.ToObject<GamepadInput>();
+                if (gamepadInput == null) return;
+                
+                if (client.Controller != null)
+                {
+                    switch (gamepadInput.Type)
+                    {
+                        case "button":
+                            HandleButtonInput(client.Controller, gamepadInput);
+                            break;
+                        case "joystick":
+                            HandleJoystickInput(client.Controller, gamepadInput);
+                            break;
+                    }
                 }
             }
-            catch (JsonReaderException ex)
+            catch (Exception ex) { Console.WriteLine($"[SERVER ERROR] Message processing failed: '{message}'. Error: {ex.Message}"); }
+        }
+
+        private void HandleOtpVerification(ClientInfo client, string? receivedOtp)
+        {
+            if (client == null || client.IsVerified) return;
+            if (receivedOtp == CurrentOtp)
             {
-                Console.WriteLine($"[SERVER ERROR] JSON Parsing FAILED for message: '{message}'. Error: {ex.Message}");
+                client.IsVerified = true;
+                try
+                {
+                    var controller = _vigemClient.CreateXbox360Controller();
+                    controller.Connect();
+                    client.Controller = controller;
+                    _clientSockets[client.Id].Send("{\"type\":\"connection_success\"}");
+                    NotifyStateChanged();
+                }
+                catch (Exception ex)
+                {
+                     Console.WriteLine($"[WS-SERVER] FATAL ERROR: Failed to create virtual controller post-verification. Reason: {ex}");
+                     client.IsVerified = false;
+                }
+            }
+            else
+            {
+                _clientSockets[client.Id].Send("{\"type\":\"otp_failure\", \"message\":\"Invalid OTP\"}");
             }
         }
 
+        // --- All other methods (HandleButtonInput, StartUdpBroadcast, etc.) remain the same ---
         private void HandleButtonInput(IXbox360Controller controller, GamepadInput input)
         {
             if (input.Pressed == null) return;
             bool isPressed = input.Pressed.Value;
             Xbox360Button? button = input.Id switch
             {
-                "btn_a" => Xbox360Button.A,
-                "btn_b" => Xbox360Button.B,
-                "btn_x" => Xbox360Button.X,
-                "btn_y" => Xbox360Button.Y,
-                "btn_lb" => Xbox360Button.LeftShoulder,
-                "btn_rb" => Xbox360Button.RightShoulder,
-                "dpad-up" => Xbox360Button.Up,
-                "dpad-down" => Xbox360Button.Down,
-                "dpad-left" => Xbox360Button.Left,
-                "dpad-right" => Xbox360Button.Right,
-                "menu" => Xbox360Button.Start,
-                "clone" => Xbox360Button.Back,
+                "btn_a" => Xbox360Button.A, "btn_b" => Xbox360Button.B, "btn_x" => Xbox360Button.X,
+                "btn_y" => Xbox360Button.Y, "btn_lb" => Xbox360Button.LeftShoulder, "btn_rb" => Xbox360Button.RightShoulder,
+                "dpad-up" => Xbox360Button.Up, "dpad-down" => Xbox360Button.Down, "dpad-left" => Xbox360Button.Left,
+                "dpad-right" => Xbox360Button.Right, "menu" => Xbox360Button.Start, "clone" => Xbox360Button.Back,
                 _ => null
             };
-            if (button != null)
-            {
-                controller.SetButtonState(button, isPressed);
-            }
+            if (button != null) controller.SetButtonState(button, isPressed);
             else if(input.Id == "btn_lt" || input.Id == "btn_rt")
             {
                 byte value = isPressed ? (byte)255 : (byte)0;
@@ -234,7 +255,6 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
                 else controller.SetSliderValue(Xbox360Slider.RightTrigger, value);
             }
         }
-
         private void HandleJoystickInput(IXbox360Controller controller, GamepadInput input)
         {
             if (input.X == null || input.Y == null) return;
@@ -242,17 +262,10 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
             var y = (short)(input.Y.Value * short.MaxValue * -1);
             switch (input.Id)
             {
-                case "joy_l":
-                    controller.SetAxisValue(Xbox360Axis.LeftThumbX, x);
-                    controller.SetAxisValue(Xbox360Axis.LeftThumbY, y);
-                    break;
-                case "joy_r":
-                    controller.SetAxisValue(Xbox360Axis.RightThumbX, x);
-                    controller.SetAxisValue(Xbox360Axis.RightThumbY, y);
-                    break;
+                case "joy_l": controller.SetAxisValue(Xbox360Axis.LeftThumbX, x); controller.SetAxisValue(Xbox360Axis.LeftThumbY, y); break;
+                case "joy_r": controller.SetAxisValue(Xbox360Axis.RightThumbX, x); controller.SetAxisValue(Xbox360Axis.RightThumbY, y); break;
             }
         }
-        
         private void StartUdpBroadcast()
         {
             _discoveryCts = new CancellationTokenSource();
@@ -274,42 +287,32 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
                 catch (Exception ex) { Console.WriteLine($"UDP Broadcast Error: {ex.Message}"); }
             }, _discoveryCts.Token);
         }
-        
         private void StartHeartbeatCheck()
         {
             _heartbeatTimer = new Timer(CheckClientConnections, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
         }
-
         private void CheckClientConnections(object? state)
         {
             var clientsToCheck = _clientSockets.ToList();
             if (!clientsToCheck.Any()) return;
-
             var now = DateTime.UtcNow;
             const string pingMessage = "{\"type\":\"ping\"}";
-
             foreach (var clientPair in clientsToCheck)
             {
                 var socket = clientPair.Value;
                 var clientInfo = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
-                
                 if(clientInfo == null) continue;
-
                 if (now - clientInfo.LastHeartbeat > _clientTimeoutDuration)
                 {
-                    Console.WriteLine($"[HEARTBEAT] Client {clientInfo.Id} ({clientInfo.Name}) timed out. Closing connection.");
                     socket.Close();
                     continue; 
                 }
-
                 if (now - clientInfo.LastHeartbeat > _pingInterval)
                 {
-                    Console.WriteLine($"[HEARTBEAT] Pinging idle client {clientInfo.Id} ({clientInfo.Name}).");
                     socket.Send(pingMessage);
                 }
             }
         }
-        
         private void GenerateQrCode()
         {
             string qrCodePayload = $"MOB_CONTROL_SERVER|{this.DeviceName}|{this.ServerAddress}";
@@ -318,16 +321,10 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
             var pngQrCode = new PngByteQRCode(qrCodeData);
             QrCodeImage = $"data:image/png;base64,{Convert.ToBase64String(pngQrCode.GetGraphic(20))}";
         }
-        
         public void DisconnectClient(Guid clientId)
         {
-            if (_clientSockets.TryGetValue(clientId, out var socket)) 
-            { 
-                Console.WriteLine($"[MANUAL] Disconnecting client {clientId} by user request.");
-                socket.Close(); 
-            }
+            if (_clientSockets.TryGetValue(clientId, out var socket)) { socket.Close(); }
         }
-
         private string? GetLocalIPAddress()
         {
             try 
@@ -338,24 +335,16 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
             }
             catch { return Dns.GetHostName(); } 
         }
-
         public void Dispose()
         {
             _discoveryCts?.Cancel();
-            _discoveryCts?.Dispose();
+            _otpTimer?.Dispose();
             _heartbeatTimer?.Dispose();
-            
-            foreach(var socket in _clientSockets.Values)
-            {
-                socket.Close();
-            }
-            _clientSockets.Clear();
-            ConnectedClients.Clear();
-            
+            foreach(var client in ConnectedClients) { client.Controller?.Disconnect(); }
+            foreach(var socket in _clientSockets.Values) { socket.Close(); }
             _vigemClient?.Dispose();
             _server?.Dispose();
         }
-        
         private void NotifyStateChanged() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     }
 }

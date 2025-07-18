@@ -1,7 +1,4 @@
-// App.js
-
-import React, { useCallback, useEffect } from 'react';
-import { View, Text } from 'react-native';
+import React, { useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import RootNav from './navigation/RootNav'; 
 import { StatusBar } from 'expo-status-bar';
@@ -12,13 +9,18 @@ import { ConnectionProvider } from './context/useConnection';
 
 SplashScreen.preventAutoHideAsync();
 
-const AppContent = ({ onLayout }) => {
+// This component is helpful to access the theme from SettingsProvider
+const ThemedApp = ({ onLayout }) => {
   const { theme, themeMode } = useSettings();
 
   return (
+    // 1. NavigationContainer now wraps ConnectionProvider
     <NavigationContainer theme={theme} onReady={onLayout}>
-      <StatusBar style={themeMode === 'light' ? 'dark' : 'light'} />
-      <RootNav />
+      {/* 2. ConnectionProvider is now INSIDE and can use navigation */}
+      <ConnectionProvider>
+        <StatusBar style={themeMode === 'light' ? 'dark' : 'light'} />
+        <RootNav />
+      </ConnectionProvider>
     </NavigationContainer>
   );
 };
@@ -28,9 +30,10 @@ export default function App() {
     'Doto Thin': require('./assets/fonts/Doto.ttf'),
   });
 
-  // ... your font loading logic is perfect ...
   const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded || fontError) await SplashScreen.hideAsync();
+    if (fontsLoaded || fontError) {
+      await SplashScreen.hideAsync();
+    }
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) {
@@ -38,10 +41,9 @@ export default function App() {
   }
 
   return (
+    // SettingsProvider is still the outermost provider
     <SettingsProvider>
-      <ConnectionProvider>
-        <AppContent onLayout={onLayoutRootView} />
-      </ConnectionProvider>
+      <ThemedApp onLayout={onLayoutRootView} />
     </SettingsProvider>
   );
-} 
+}

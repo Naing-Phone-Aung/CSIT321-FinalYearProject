@@ -1,5 +1,3 @@
-// screens/qrscan.js
-
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -27,42 +25,46 @@ const ScannerOverlay = () => (
 
 export default function QRScanScreen() {
   const navigation = useNavigation();
-  const { connectToPC, connectedPC } = useConnection();
+  // We no longer need connectedPC here, as connectToPC will handle navigation
+  const { connectToPC } = useConnection(); 
   const [scanned, setScanned] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-// Handle the scanned data
-const handleBarCodeScanned = ({ data }) => {
-  setScanned(true);
-  const parts = data.split('|');
+  const handleBarCodeScanned = ({ data }) => {
+    setScanned(true); // Prevent multiple scans
+    const parts = data.split('|');
 
-  if (parts[0] === 'MOB_CONTROL_SERVER' && parts.length === 3) {
-    const pc = { name: parts[1], address: parts[2] };
-    console.log(`Scanned valid PC from QR code: ${pc.name}`);
-    connectToPC(pc);
-  } else {
-    Alert.alert(
-      "Invalid QR Code",
-      "This doesn't look like a valid MobControl QR code. Please try again.",
-      [{ text: "OK", onPress: () => setScanned(false) }]
-    );
-  }
-};
-
-  useEffect(() => {
-    if (connectedPC) {
-      navigation.goBack();
+    if (parts[0] === 'MOB_CONTROL_SERVER' && parts.length === 3) {
+      // --- THIS IS THE KEY CHANGE ---
+      // Append '/qr' to the address to tell the server this is a QR scan
+      const pc = { name: parts[1], address: `${parts[2]}/qr` }; 
+      
+      console.log(`Scanned QR. Attempting to connect to: ${pc.name} at ${pc.address}`);
+      connectToPC(pc);
+      // The useConnection hook will handle navigation on 'connection_success'
+    } else {
+      Alert.alert(
+        "Invalid QR Code",
+        "This QR code is not valid for MobControl. Please scan the one on your PC.",
+        [{ text: "OK", onPress: () => setScanned(false) }] // Allow scanning again
+      );
     }
-  }, [connectedPC, navigation]);
-  
+  };
+
   useEffect(() => {
     if (!permission) {
       requestPermission();
+    } else if (!permission.granted) {
+      // Handle case where permission was denied
+      Alert.alert("Camera Permission", "Camera access is required to scan QR codes.", [
+        { text: "OK", onPress: () => navigation.goBack() }
+      ]);
     }
-  }, [permission, requestPermission]);
+  }, [permission, requestPermission, navigation]);
 
   if (!permission?.granted) {
+    // Render nothing or a loading/permission message while waiting
     return null;
   }
 

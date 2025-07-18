@@ -1,0 +1,62 @@
+@implements IDisposable
+@using MobControlPC.Services
+@inject ServerService Server
+
+<div class="content-card otp-card">
+    <!-- THIS HEADER SECTION IS NOW RESTORED -->
+    <div class="otp-header">
+        <h2>One-time OTP</h2>
+    </div>
+
+    <p class="otp-subtitle">To complete your request, enter the one-time password on your device.</p>
+    
+    <div class="otp-body">
+        <span class="otp-code">@Server.CurrentOtp</span>
+        <span class="countdown">@_secondsRemaining sec</span>
+    </div>
+</div>
+
+@code {
+    // ... C# code remains exactly the same ...
+    private Timer? _timer;
+    private int _secondsRemaining = 30;
+
+    protected override void OnInitialized()
+    {
+        if (Server != null)
+        {
+            Server.PropertyChanged += OnServerPropertyChanged;
+            StartTimer();
+        }
+    }
+
+    private void OnServerPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        _secondsRemaining = 30;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void StartTimer()
+    {
+        _timer = new Timer(TimerTick, null, 1000, 1000);
+    }
+
+    private void TimerTick(object? state)
+    {
+        _secondsRemaining--;
+        if (_secondsRemaining < 0)
+        {
+            _secondsRemaining = 30;
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        if (Server != null)
+        {
+            Server.PropertyChanged -= OnServerPropertyChanged;
+        }
+        _timer?.Dispose();
+    }
+}

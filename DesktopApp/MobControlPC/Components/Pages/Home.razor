@@ -2,42 +2,44 @@
 @implements IDisposable
 @using MobControlPC.Services
 @using System.Net.NetworkInformation
+@using MobControlPC.Components
+
 @inject ServerService Server
 
 @if (Server != null)
 {
     <div class="page-container">
         <header>
-            <svg class="logo-svg" ...></svg>
+            <img class="logo-img" src="image/mobcontrollogo.svg" alt="App Logo" />
             <h1>Mob Controller Receiver</h1>
         </header>
+
         <main>
-            <section class="connection-info">
-                <div class="info-box">
+            <div class="left-column">
+                <section class="info-section">
                     <h2>Local Connection</h2>
                     <div class="network-card">
-                        <svg class="icon" ...></svg>
+                        <i class="icon fa-solid fa-wifi"></i>
                         <div class="details">
                             <span class="ssid">@_wifiSsid</span>
                             <span class="device-name">Device name : @Server.DeviceName</span>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <div class="info-box">
+                <section class="info-section">
                     <h2>Connected Device</h2>
                     @if (Server.IsAnyClientConnected)
                     {
-                        @foreach (var client in Server.ConnectedClients)
+                        @foreach (var client in Server.ConnectedClients.Where(c => c.IsVerified))
                         {
-                            <div class="network-card connected mb-2">
-                                <svg class="icon" ...></svg>
+                            <div class="network-card connected">
+                                <i class="icon fa-solid fa-mobile-screen-button"></i>
                                 <div class="details">
                                     <span class="ssid">@client.Name</span>
                                     <span class="device-name">Connected, secured</span>
                                 </div>
                                 <div class="actions">
-                                    <svg class="icon-small" ...></svg>
                                     <button @onclick="() => Server.DisconnectClient(client.Id)">Disconnect</button>
                                 </div>
                             </div>
@@ -49,16 +51,21 @@
                             <span>Waiting for connection...</span>
                         </div>
                     }
-                </div>
-            </section>
-            <section class="qr-section">
-                <h2>Scan QR</h2>
-                <p>Opens Mob-Controller on your phone and scan QR code to confirm.</p>
-                @if (Server.QrCodeImage != null)
-                {
-                    <img class="qr-code" src="@Server.QrCodeImage" alt="QR Code" />
-                }
-            </section>
+                </section>
+            </div>
+
+            <div class="right-column">
+                <section class="content-card qr-section">
+                    <h2>Scan QR</h2>
+                    <p>Open Mob-Controller on your phone and scan the QR code to connect.</p>
+                    @if (Server.QrCodeImage != null)
+                    {
+                        <img class="qr-code" src="@Server.QrCodeImage" alt="QR Code" />
+                    }
+                </section>
+
+                <OtpDisplay />
+            </div>
         </main>
     </div>
 }
