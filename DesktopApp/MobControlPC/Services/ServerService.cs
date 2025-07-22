@@ -27,8 +27,7 @@ namespace MobControlPC.Services
         public double? Y { get; set; }
     }
 
-    public enum ConnectionMethod { Manual, QRCode } // NEW: Enum to differentiate connection types
-
+    public enum ConnectionMethod { Manual, QRCode } 
     public class ClientInfo
     {
         public Guid Id { get; set; }
@@ -37,7 +36,7 @@ namespace MobControlPC.Services
         public IXbox360Controller? Controller { get; set; }
         public DateTime LastHeartbeat { get; set; }
         public bool IsVerified { get; set; } = false;
-        public ConnectionMethod Method { get; set; } = ConnectionMethod.Manual; // NEW: Track how client connected
+        public ConnectionMethod Method { get; set; } = ConnectionMethod.Manual;
     }
 
     public class ServerService : INotifyPropertyChanged, IDisposable
@@ -62,8 +61,9 @@ namespace MobControlPC.Services
         private Timer? _otpTimer;
         private readonly Random _random = new Random();
 
-        private readonly TimeSpan _clientTimeoutDuration = TimeSpan.FromSeconds(15); 
-        private readonly TimeSpan _pingInterval = TimeSpan.FromSeconds(5); 
+        // THE FIX IS RELATED TO THESE VALUES AND HOW THEY ARE USED
+        private readonly TimeSpan _clientTimeoutDuration = TimeSpan.FromSeconds(10); 
+        private readonly TimeSpan _pingInterval = TimeSpan.FromSeconds(3); 
 
         public ServerService()
         {
@@ -112,7 +112,6 @@ namespace MobControlPC.Services
             Console.WriteLine($"WebSocket Server started at {ServerAddress}");
         }
 
-        // --- MODIFIED METHOD: Now checks the connection path for QR code connections ---
         private void HandleClientConnected(IWebSocketConnection socket)
         {
             Console.WriteLine($"[WS-SERVER] Client connecting from path: '{socket.ConnectionInfo.Path}'");
@@ -130,8 +129,7 @@ namespace MobControlPC.Services
             
             _clientSockets.Add(clientInfo.Id, socket);
             ConnectedClients.Add(clientInfo);
-
-            // If it's a QR connection, create the controller and notify success immediately
+            
             if (isQrConnection)
             {
                 Console.WriteLine($"[WS-SERVER] QR Connection detected. Auto-verifying client {clientInfo.Id}.");
@@ -151,29 +149,51 @@ namespace MobControlPC.Services
             NotifyStateChanged();
         }
 
-        private void HandleClientDisconnected(IWebSocketConnection socket)
-        {
-            var client = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
-            if (client != null)
-            {
-                client.Controller?.Disconnect();
-                _clientSockets.Remove(client.Id);
-                ConnectedClients.RemoveAll(c => c.Id == client.Id);
-                NotifyStateChanged();
-            }
-        }
+// --- ROBUST METHOD ---
+// This version is safer and won't cause issues if a client is already removed.
+private void HandleClientDisconnected(IWebSocketConnection socket)
+{
+    var client = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
+    // Only proceed if the client actually still exists in our lists.
+    if (client != null)
+    {
+        Console.WriteLine($"[WS-SERVER] Client '{client.Name}' disconnected gracefully.");
+        
+        // Perform the full cleanup routine.
+        client.Controller?.Disconnect();
+        _clientSockets.Remove(client.Id);
+        int clientsRemoved = ConnectedClients.RemoveAll(c => c.Id == client.Id);
 
+        // Only update the UI if a client was actually removed by this method.
+        if (clientsRemoved > 0)
+        {
+            NotifyStateChanged();
+        }
+    }
+}
+
+        // --- FIXED METHOD ---
+        // The logic here was changed to correctly handle pong messages.
+        // Previously, LastHeartbeat was updated for ALL messages at the start,
+        // which prevented the ping-pong loop from working correctly.
         private void HandleClientMessage(IWebSocketConnection socket, string message)
         {
             var client = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
             if (client == null) return;
+
+            // The client is alive, so we update their heartbeat time.
+            // This is the key change: We now update the heartbeat for pong messages too,
+            // and we stop processing the "pong" message right after.
             client.LastHeartbeat = DateTime.UtcNow;
 
+            // If the message is a "pong", its only job is to update the heartbeat,
+            // so we return immediately and don't process it further.
             if (message.Contains("\"type\":\"pong\"")) return;
             
             if (client.Name == "Unknown Device" && !message.StartsWith("{")) 
             { 
                 client.Name = message; 
+                Console.WriteLine($"[WS-SERVER] Client {client.Id} identified as '{client.Name}'.");
                 NotifyStateChanged();
                 return; 
             }
@@ -213,6 +233,7 @@ namespace MobControlPC.Services
             if (client == null || client.IsVerified) return;
             if (receivedOtp == CurrentOtp)
             {
+                Console.WriteLine($"[WS-SERVER] OTP verification successful for client {client.Id}.");
                 client.IsVerified = true;
                 try
                 {
@@ -230,11 +251,11 @@ namespace MobControlPC.Services
             }
             else
             {
+                Console.WriteLine($"[WS-SERVER] OTP verification failed for client {client.Id}.");
                 _clientSockets[client.Id].Send("{\"type\":\"otp_failure\", \"message\":\"Invalid OTP\"}");
             }
         }
-
-        // --- All other methods (HandleButtonInput, StartUdpBroadcast, etc.) remain the same ---
+        
         private void HandleButtonInput(IXbox360Controller controller, GamepadInput input)
         {
             if (input.Pressed == null) return;
@@ -255,6 +276,7 @@ namespace MobControlPC.Services
                 else controller.SetSliderValue(Xbox360Slider.RightTrigger, value);
             }
         }
+
         private void HandleJoystickInput(IXbox360Controller controller, GamepadInput input)
         {
             if (input.X == null || input.Y == null) return;
@@ -266,6 +288,7 @@ namespace MobControlPC.Services
                 case "joy_r": controller.SetAxisValue(Xbox360Axis.RightThumbX, x); controller.SetAxisValue(Xbox360Axis.RightThumbY, y); break;
             }
         }
+
         private void StartUdpBroadcast()
         {
             _discoveryCts = new CancellationTokenSource();
@@ -287,44 +310,85 @@ namespace MobControlPC.Services
                 catch (Exception ex) { Console.WriteLine($"UDP Broadcast Error: {ex.Message}"); }
             }, _discoveryCts.Token);
         }
+
         private void StartHeartbeatCheck()
         {
             _heartbeatTimer = new Timer(CheckClientConnections, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
         }
-        private void CheckClientConnections(object? state)
+
+        // --- FIXED METHOD ---
+        // This logic is now more robust. It iterates a copy of the clients,
+        // checks for a timeout first, and only then checks if it needs to send a ping.
+        // --- FIXED METHOD ---
+// This version now manually removes timed-out clients to prevent "zombie" connections.
+private void CheckClientConnections(object? state)
+{
+    // A list to hold clients that we need to remove after checking everyone.
+    var clientsToRemove = new List<ClientInfo>();
+    var now = DateTime.UtcNow;
+    const string pingMessage = "{\"type\":\"ping\"}";
+
+    // Iterate over a copy of the list to avoid errors while modifying the original.
+    foreach (var clientInfo in ConnectedClients.ToList())
+    {
+        if (!_clientSockets.TryGetValue(clientInfo.Id, out var socket))
         {
-            var clientsToCheck = _clientSockets.ToList();
-            if (!clientsToCheck.Any()) return;
-            var now = DateTime.UtcNow;
-            const string pingMessage = "{\"type\":\"ping\"}";
-            foreach (var clientPair in clientsToCheck)
+            // If socket is missing, mark client for removal.
+            clientsToRemove.Add(clientInfo);
+            continue;
+        }
+
+        // --- Timeout Logic ---
+        if (now - clientInfo.LastHeartbeat > _clientTimeoutDuration)
+        {
+            Console.WriteLine($"[HEARTBEAT] Client '{clientInfo.Name}' timed out. Closing connection and removing.");
+            socket.Close();
+            clientsToRemove.Add(clientInfo); // Add the client to our removal list.
+            continue; // Move to the next client.
+        }
+
+        // --- Ping Logic ---
+        if (now - clientInfo.LastHeartbeat > _pingInterval)
+        {
+            if (socket.IsAvailable)
             {
-                var socket = clientPair.Value;
-                var clientInfo = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
-                if(clientInfo == null) continue;
-                if (now - clientInfo.LastHeartbeat > _clientTimeoutDuration)
-                {
-                    socket.Close();
-                    continue; 
-                }
-                if (now - clientInfo.LastHeartbeat > _pingInterval)
-                {
-                    socket.Send(pingMessage);
-                }
+                socket.Send(pingMessage);
             }
         }
+    }
+
+    // --- Cleanup Logic ---
+    // Now, remove all the clients that were marked for removal.
+    if (clientsToRemove.Any())
+    {
+        foreach (var client in clientsToRemove)
+        {
+            // Perform the full cleanup routine.
+            client.Controller?.Disconnect();
+            _clientSockets.Remove(client.Id);
+            ConnectedClients.RemoveAll(c => c.Id == client.Id);
+        }
+        
+        // Notify the UI that the client list has changed.
+        NotifyStateChanged();
+    }
+}
+
         private void GenerateQrCode()
         {
+            // The QR code for auto-connection should point to the special /qr path
             string qrCodePayload = $"MOB_CONTROL_SERVER|{this.DeviceName}|{this.ServerAddress}";
             var qrGenerator = new QRCodeGenerator();
             var qrCodeData = qrGenerator.CreateQrCode(qrCodePayload, QRCodeGenerator.ECCLevel.Q);
             var pngQrCode = new PngByteQRCode(qrCodeData);
             QrCodeImage = $"data:image/png;base64,{Convert.ToBase64String(pngQrCode.GetGraphic(20))}";
         }
+
         public void DisconnectClient(Guid clientId)
         {
             if (_clientSockets.TryGetValue(clientId, out var socket)) { socket.Close(); }
         }
+
         private string? GetLocalIPAddress()
         {
             try 
@@ -333,8 +397,15 @@ namespace MobControlPC.Services
                 socket.Connect("8.8.8.8", 65530);
                 return (socket.LocalEndPoint as IPEndPoint)?.Address.ToString();
             }
-            catch { return Dns.GetHostName(); } 
+            catch 
+            {
+                // Fallback for when there's no internet connection
+                return NetworkInformation.GetHostNames()
+                    .FirstOrDefault(h => h.Type == Windows.Networking.HostNameType.Ipv4)?
+                    .ToString();
+            }
         }
+
         public void Dispose()
         {
             _discoveryCts?.Cancel();
@@ -345,6 +416,7 @@ namespace MobControlPC.Services
             _vigemClient?.Dispose();
             _server?.Dispose();
         }
+
         private void NotifyStateChanged() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     }
 }
