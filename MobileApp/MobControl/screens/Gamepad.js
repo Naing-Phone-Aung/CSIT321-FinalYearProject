@@ -9,6 +9,8 @@ import { useConnection } from '../context/useConnection';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { loadLayouts } from '../services/LayoutService';
+import * as Haptics from 'expo-haptics';
+import { useSettings } from '../context/SettingsContext';
 
 const window = Dimensions.get('window');
 const landscapeWidth = Math.max(window.width, window.height);
@@ -64,11 +66,16 @@ export default function GamepadScreen({ route, navigation }) {
   );
 
   useEffect(() => {
-    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+  ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+  StatusBar.setHidden(true, 'none');
+
+  let sub;
+
+  if (Platform.OS === 'android') {
     NavigationBar.setBehaviorAsync('inset-swipe');
-    StatusBar.setHidden(true, 'none');
     NavigationBar.setVisibilityAsync('hidden');
-    const sub = NavigationBar.addVisibilityListener(({ visibility }) => {
+
+    sub = NavigationBar.addVisibilityListener(({ visibility }) => {
       if (visibility === 'visible') {
         if (navBarTimeout.current) clearTimeout(navBarTimeout.current);
         navBarTimeout.current = setTimeout(() => {
@@ -77,15 +84,38 @@ export default function GamepadScreen({ route, navigation }) {
         }, 2500);
       }
     });
-    if (wasConnected.current && !isConnected) { Alert.alert("Connection Lost", "The connection to the PC was lost.", [{ text: "OK", onPress: () => navigation.goBack() }]); }
-    wasConnected.current = isConnected;
-    return () => { ScreenOrientation.unlockAsync(); StatusBar.setHidden(false, 'none'); NavigationBar.setVisibilityAsync('visible'); sub.remove(); if (navBarTimeout.current) clearTimeout(navBarTimeout.current); };
+  }
+
+  if (wasConnected.current && !isConnected) {
+    Alert.alert("Connection Lost", "The connection to the PC was lost.", [
+      { text: "OK", onPress: () => navigation.goBack() }
+    ]);
+  }
+  wasConnected.current = isConnected;
+
+  return () => {
+    ScreenOrientation.unlockAsync();
+    StatusBar.setHidden(false, 'none');
+
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync('visible');
+      sub?.remove?.();
+    }
+
+    if (navBarTimeout.current) clearTimeout(navBarTimeout.current);
+    };
   }, [isConnected, navigation]);
+
+  const { isHapticEnabled } = useSettings();
 
   const handleButtonStateChange = useCallback(async (buttonId, isPressed) => {
     const mappings = activeLayout.mappings || {};
     const mappedAction = mappings[buttonId] || buttonId;
     
+    if (isPressed && isHapticEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
+    }
+
     if (Array.isArray(mappedAction)) {
       if (isPressed) {
         for (const actionId of mappedAction) {
@@ -98,9 +128,8 @@ export default function GamepadScreen({ route, navigation }) {
       return;
     }
 
-    sendMessage({ type: 'button', id: mappedAction, pressed: isPressed });
-
-  }, [isConnected, sendMessage, activeLayout.mappings]);
+    sendMessage({ type: 'button', id: mappedAction, pressed: isPressed }); 
+    }, [isConnected, sendMessage, activeLayout.mappings, isHapticEnabled]);
   
   const handleJoystickMove = useCallback((joystickId, position) => {
     if (isConnected) sendMessage({ type: 'joystick', id: joystickId, x: position.x, y: position.y });
