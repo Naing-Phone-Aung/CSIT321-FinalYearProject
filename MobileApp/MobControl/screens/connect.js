@@ -68,6 +68,16 @@ export default function ConnectScreen() {
   const [isOtpModalVisible, setOtpModalVisible] = useState(false);
   const [pcToVerify, setPcToVerify] = useState(null);
 
+  const pcsToDisplay = [...discoveredPCs];
+
+  const isConnectedPcInList = discoveredPCs.some(
+    p => p.address === connectedPC?.address
+  );
+
+  if (connectedPC && !isConnectedPcInList) {
+    pcsToDisplay.unshift(connectedPC);
+  }
+  
   const handleAttemptConnect = (pc) => {
     setPcToVerify(pc);
     connectToPC(pc);
@@ -107,26 +117,24 @@ export default function ConnectScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Local PC</Text>
-            
-            {/* --- THIS IS THE MODIFIED BUTTON --- */}
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Local PC</Text>            
+
             <TouchableOpacity 
               style={[
                 styles.scanButton, 
                 { backgroundColor: theme.colors.primary },
-                connectionStatus !== 'disconnected' && styles.disabledButton // Style for disabled
+                connectionStatus !== 'disconnected' && styles.disabledButton
               ]} 
               onPress={() => navigation.navigate('QRScan')}
-              disabled={connectionStatus !== 'disconnected'} // Logic to disable
+              disabled={connectionStatus !== 'disconnected'}
             >
               <MaterialIcons name="qr-code-scanner" size={18} color="#FFF" />
               <Text style={styles.scanButtonText}>Scan QR</Text>
             </TouchableOpacity>
-
           </View>
           
-          {discoveredPCs.length > 0 ? (
-            discoveredPCs.map(pc => (
+          {pcsToDisplay.length > 0 ? (
+            pcsToDisplay.map(pc => (
               <LocalPCCard
                 key={pc.address}
                 pc={pc}
