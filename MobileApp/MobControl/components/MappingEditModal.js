@@ -1,44 +1,77 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+// MappingEditModal.js
 
-const TARGET_BUTTONS = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'D-Pad Up', 'D-Pad Down', 'D-Pad Left', 'D-Pad Right', 'Start', 'Back'];
-const TARGET_BUTTON_IDS = ['btn_a', 'btn_b', 'btn_x', 'btn_y', 'btn_lb', 'btn_rb', 'btn_lt', 'btn_rt', 'dpad-up', 'dpad-down', 'dpad-left', 'dpad-right', 'menu', 'clone'];
+import React, { useState, useEffect } from 'react';
+import { Modal, View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+// Data is grouped for better presentation in the UI
+const BUTTON_GROUPS = [
+    {
+        title: 'Action Buttons',
+        data: [{ id: 'btn_a', label: 'A' }, { id: 'btn_b', label: 'B' }, { id: 'btn_x', label: 'X' }, { id: 'btn_y', label: 'Y' }],
+    },
+    {
+        title: 'Shoulder & Triggers',
+        data: [{ id: 'btn_lb', label: 'LB' }, { id: 'btn_rb', label: 'RB' }, { id: 'btn_lt', label: 'LT' }, { id: 'btn_rt', label: 'RT' }],
+    },
+    {
+        title: 'Directional Pad',
+        data: [{ id: 'dpad-up', label: 'D-Pad Up' }, { id: 'dpad-down', label: 'D-Pad Down' }, { id: 'dpad-left', label: 'D-Pad Left' }, { id: 'dpad-right', label: 'D-Pad Right' }],
+    },
+    {
+        title: 'System Buttons',
+        data: [{ id: 'menu', label: 'Start' }, { id: 'clone', label: 'Back' }],
+    }
+];
+
+const ALL_BUTTONS_FLAT = BUTTON_GROUPS.flatMap(group => group.data);
+const TARGET_BUTTON_IDS = ALL_BUTTONS_FLAT.map(b => b.id);
+const TARGET_BUTTON_LABELS = ALL_BUTTONS_FLAT.map(b => b.label);
+
+const ComboPill = ({ label, onRemove }) => (
+    <View style={styles.comboPill}>
+        <Text style={styles.comboPillText}>{label}</Text>
+        <Pressable onPress={onRemove} style={styles.comboPillRemove}>
+            <Ionicons name="close-circle" size={20} color="#FFF" />
+        </Pressable>
+    </View>
+);
 
 export default function MappingEditModal({ visible, onClose, onSave, editingButton }) {
-    const [selectedKeys, setSelectedKeys] = useState([]);
+    const [sequence, setSequence] = useState([]);
 
     useEffect(() => {
         if (editingButton?.mappedTo) {
-            const currentMapping = editingButton.mappedTo;
-            if (Array.isArray(currentMapping)) {
-                // The order is preserved from the saved combo
-                setSelectedKeys(currentMapping.map(id => TARGET_BUTTONS[TARGET_BUTTON_IDS.indexOf(id)]));
-            } else {
-                setSelectedKeys([TARGET_BUTTONS[TARGET_BUTTON_IDS.indexOf(currentMapping)]]);
-            }
+            const currentMapping = Array.isArray(editingButton.mappedTo) ? editingButton.mappedTo : [editingButton.mappedTo];
+            const initialSequence = currentMapping.map((buttonId, index) => ({
+                uniqueId: Date.now() + index,
+                label: TARGET_BUTTON_LABELS[TARGET_BUTTON_IDS.indexOf(buttonId)]
+            }));
+            setSequence(initialSequence);
         } else {
-            setSelectedKeys([]);
+            setSequence([]);
         }
     }, [editingButton]);
 
-    const handleSelectKey = (key) => {
-        setSelectedKeys(prevKeys => {
-            if (prevKeys.includes(key)) {
-                return prevKeys.filter(k => k !== key);
-            } else {
-                return [...prevKeys, key]; 
-            }
-        });
+    const handleAddToSequence = (label) => {
+        const newItem = {
+            uniqueId: Date.now() + Math.random(),
+            label: label
+        };
+        setSequence(prevSequence => [...prevSequence, newItem]);
+    };
+    
+    const handleRemoveFromSequence = (uniqueIdToRemove) => {
+        setSequence(prevSequence => prevSequence.filter(item => item.uniqueId !== uniqueIdToRemove));
     };
 
     const handleSave = () => {
-        if (selectedKeys.length === 0) {
+        if (sequence.length === 0) {
             onSave(editingButton.id, null);
-        } else if (selectedKeys.length === 1) {
-            onSave(editingButton.id, TARGET_BUTTON_IDS[TARGET_BUTTONS.indexOf(selectedKeys[0])]);
         } else {
-            const comboIds = selectedKeys.map(key => TARGET_BUTTON_IDS[TARGET_BUTTONS.indexOf(key)]);
-            onSave(editingButton.id, comboIds);
+            const comboIds = sequence.map(item => TARGET_BUTTON_IDS[TARGET_BUTTON_LABELS.indexOf(item.label)]);
+            const finalMapping = comboIds.length === 1 ? comboIds[0] : comboIds;
+            onSave(editingButton.id, finalMapping);
         }
         onClose();
     };
@@ -47,32 +80,69 @@ export default function MappingEditModal({ visible, onClose, onSave, editingButt
         <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
             <View style={styles.overlay}>
                 <View style={styles.modalContainer}>
-                    <Text style={styles.title}>Remap Button: {editingButton?.label}</Text>
-                    <ScrollView contentContainerStyle={styles.keyGrid}>
-                        {TARGET_BUTTONS.map(key => {
-                            const selectionIndex = selectedKeys.indexOf(key); 
-                            const isSelected = selectionIndex !== -1;
+                    {/* UX IMPROVEMENT: Main content is now in a row for horizontal layout */}
+                    <View style={styles.horizontalLayout}>
+                        
+                        {/* --- LEFT COLUMN --- */}
+                        <View style={styles.leftColumn}>
+                            <Text style={styles.title}>Edit Mapping: {editingButton?.label}</Text>
+                            
+                            <Text style={styles.instruction}>
+                                Current Sequence:
+                            </Text>
+                            <View style={styles.comboDisplay}>
+                                {sequence.length === 0 ? (
+                                    <Text style={styles.noMappingText}>No Mapping (Default)</Text>
+                                ) : (
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                        {sequence.map(item => (
+                                            <ComboPill 
+                                                key={item.uniqueId}
+                                                label={item.label} 
+                                                onRemove={() => handleRemoveFromSequence(item.uniqueId)} 
+                                            />
+                                        ))}
+                                    </ScrollView>
+                                )}
+                            </View>
+                             <Text style={[styles.instruction, {marginTop: 20}]}>
+                                Tap buttons on the right to build your sequence.
+                            </Text>
+                        </View>
 
-                            return (
-                                <TouchableOpacity
-                                    key={key}
-                                    style={[styles.keyButton, isSelected && styles.selectedKeyButton]}
-                                    onPress={() => handleSelectKey(key)}
-                                >
-                                    {/* Badge to show selection order */}
-                                    {isSelected && selectedKeys.length > 1 && (
-                                        <View style={styles.orderBadge}>
-                                            <Text style={styles.orderBadgeText}>{selectionIndex + 1}</Text>
+                        {/* --- RIGHT COLUMN --- */}
+                        <View style={styles.rightColumn}>
+                            <ScrollView>
+                                {BUTTON_GROUPS.map(group => (
+                                    <View key={group.title}>
+                                        <Text style={styles.groupTitle}>{group.title}</Text>
+                                        <View style={styles.keyGrid}>
+                                            {group.data.map(button => (
+                                                <Pressable
+                                                    key={button.id}
+                                                    style={styles.keyButton}
+                                                    onPress={() => handleAddToSequence(button.label)}
+                                                >
+                                                    <Text style={styles.keyText}>{button.label}</Text>
+                                                </Pressable>
+                                            ))}
                                         </View>
-                                    )}
-                                    <Text style={styles.keyText}>{key}</Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </ScrollView>
-                    <View style={styles.buttonRow}>
-                        <TouchableOpacity style={styles.actionButton} onPress={onClose}><Text style={styles.actionButtonText}>Cancel</Text></TouchableOpacity>
-                        <TouchableOpacity style={[styles.actionButton, styles.saveButton]} onPress={handleSave}><Text style={[styles.actionButtonText, {color: '#FFF'}]}>Save</Text></TouchableOpacity>
+                                    </View>
+                                ))}
+                            </ScrollView>
+
+                            <View style={styles.buttonRow}>
+                                <Pressable style={({pressed}) => [styles.actionButton, {opacity: pressed ? 0.7 : 1}]} onPress={onClose}>
+                                    <Ionicons name="close-circle-outline" size={20} color="#A0A0A0" />
+                                    <Text style={styles.actionButtonText}>Cancel</Text>
+                                </Pressable>
+                                <Pressable style={({pressed}) => [styles.actionButton, styles.saveButton, {opacity: pressed ? 0.7 : 1}]} onPress={handleSave}>
+                                    <Ionicons name="save-outline" size={20} color="#FFF" />
+                                    <Text style={[styles.actionButtonText, {color: '#FFF'}]}>Save</Text>
+                                </Pressable>
+                            </View>
+                        </View>
+
                     </View>
                 </View>
             </View>
@@ -80,45 +150,141 @@ export default function MappingEditModal({ visible, onClose, onSave, editingButt
     );
 }
 
+
 const styles = StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-    modalContainer: { width: '90%', maxHeight: '80%', backgroundColor: '#2E2E2E', borderRadius: 12, padding: 20 },
-    title: { fontSize: 22, fontWeight: 'bold', color: '#FFF', textAlign: 'center', marginBottom: 20 },
-    instruction: { color: '#A0A0A0', fontSize: 16, marginBottom: 15, textAlign: 'center' },
-    keyGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', paddingVertical: 10 },
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.75)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    modalContainer: {
+        width: '100%',
+        maxHeight: '90%',
+        backgroundColor: '#2E2E2E',
+        borderRadius: 16,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOpacity: 0.5,
+        shadowRadius: 10,
+        elevation: 10
+    },
+    // --- NEW STYLES FOR HORIZONTAL LAYOUT ---
+    horizontalLayout: {
+        flexDirection: 'row',
+        maxHeight: '100%',
+    },
+    leftColumn: {
+        flex: 1,
+        paddingRight: 15,
+        borderRightWidth: 1,
+        borderRightColor: '#444',
+    },
+    rightColumn: {
+        flex: 1.2, // Give slightly more space to the button grid
+        paddingLeft: 15,
+    },
+    // --- END NEW STYLES ---
+    title: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#FFF',
+        textAlign: 'center',
+        marginBottom: 10
+    },
+    instruction: {
+        color: '#A0A0A0',
+        fontSize: 14,
+        marginBottom: 15,
+        textAlign: 'center'
+    },
+    groupTitle: {
+        color: '#CCC',
+        fontSize: 16,
+        fontWeight: '600',
+        marginTop: 15,
+        marginBottom: 5,
+        borderBottomWidth: 1,
+        borderBottomColor: '#444',
+        paddingBottom: 5
+    },
+    keyGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-start'
+    },
     keyButton: {
         backgroundColor: '#4F4F4F',
         padding: 12,
-        borderRadius: 6,
-        margin: 5,
-        minWidth: '40%',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row', // Align badge and text
+        borderRadius: 8,
+        margin: 4,
+        minWidth: '45%',
+        flexGrow: 1,
+        alignItems: 'center'
     },
-    selectedKeyButton: { backgroundColor: '#8532F3', borderColor: '#FFF', borderWidth: 1.5 },
-    keyText: { color: '#FFF', fontSize: 16 },
-    buttonRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#444' },
-    actionButton: { padding: 12, borderRadius: 8, minWidth: 100, alignItems: 'center' },
-    actionButtonText: { color: '#A0A0A0', fontSize: 16, fontWeight: 'bold' },
-    saveButton: { backgroundColor: '#8532F3', marginLeft: 15 },
-    // Styles for the order indicator badge
-    orderBadge: {
-        position: 'absolute',
-        top: -8,
-        right: -8,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        width: 24,
-        height: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1.5,
-        borderColor: '#8532F3',
+    keyText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '500'
     },
-    orderBadgeText: {
-        color: '#8532F3',
+    comboDisplay: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        minHeight: 60, // Increased height for better touch targets
+        backgroundColor: 'rgba(0,0,0,0.2)',
+        borderRadius: 8,
+        padding: 5,
+        marginBottom: 10
+    },
+    noMappingText: {
+        color: '#888',
+        fontStyle: 'italic',
+        width: '100%',
+        textAlign: 'center',
+    },
+    comboPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#8532F3',
+        borderRadius: 16,
+        paddingLeft: 12,
+        paddingRight: 4,
+        paddingVertical: 4,
+        margin: 4
+    },
+    comboPillText: {
+        color: '#FFF',
+        fontWeight: 'bold'
+    },
+    comboPillRemove: {
+        marginLeft: 5,
+        padding: 2
+    },
+    buttonRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginTop: 15,
+        paddingTop: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#444'
+    },
+    actionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 8,
+        minWidth: 100,
+        justifyContent: 'center'
+    },
+    actionButtonText: {
+        color: '#A0A0A0',
+        fontSize: 16,
         fontWeight: 'bold',
-        fontSize: 14,
+        marginLeft: 8
+    },
+    saveButton: {
+        backgroundColor: '#8532F3',
+        marginLeft: 15
     },
 });

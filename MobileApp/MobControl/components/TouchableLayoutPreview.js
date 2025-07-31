@@ -5,8 +5,11 @@ import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-nati
 import { Ionicons, Feather } from '@expo/vector-icons';
 
 // These simplified, non-interactive components are correct.
-const PreviewJoystick = ({ style }) => <View style={[styles.joystickBase, style]}><View style={[styles.joystickStick, { width: style.width * 0.55, height: style.width * 0.55, borderRadius: style.width * 0.275 }]} /></View>;
-//const PreviewJoystick = ({ style, calculatedSizePx }) => (<View style={[styles.joystickBase, style]}> {calculatedSizePx && (<View style={[styles.joystickStick, {width: calculatedSizePx * 0.55, height: calculatedSizePx * 0.55, borderRadius: calculatedSizePx * 0.275}]} />)}</View>);
+const PreviewJoystick = ({ style, sizePx }) => (
+    <View style={[styles.joystickBase, style]}>
+        <View style={[styles.joystickStick, { width: sizePx * 0.55, height: sizePx * 0.55, borderRadius: sizePx * 0.275 }]} />
+    </View>
+);
 const PreviewActionButton = ({ style, label }) => <View style={[styles.actionButton, style]}><Text style={styles.buttonText}>{label}</Text></View>;
 const PreviewShoulderButton = ({ style, label }) => <View style={[styles.shoulderButton, style]}><Text style={styles.buttonText}>{label}</Text></View>;
 const PreviewDpadButton = ({ style, direction }) => <View style={[styles.dpadShape, style]}><Ionicons name={`caret-${direction}-outline`} size={12} color="#FFF" /></View>;
@@ -58,78 +61,54 @@ export default function TouchableLayoutPreview({ layout, size, activeMenu, onSel
         const WrapperComponent = (activeMenu === 'Size' || activeMenu === 'Opacity') ? TouchableOpacity : View;
 
         const wrapperProps = {
-            key: button.id, 
-            style: [wrapperBaseStyle, selectionStyle], 
+            style: [wrapperBaseStyle, selectionStyle],
         };
 
-        
         if (WrapperComponent === TouchableOpacity) {
             wrapperProps.onPress = () => onSelectButton(button.id);
         }
 
         const innerComponentStyle = { width: '100%', height: '100%' };
 
-        const joystickCalculatedSizePx = calculatedWidth;
-
+        let innerComponent;
         switch (button.type) {
             case 'joystick':
-                return (
-                    <WrapperComponent {...wrapperProps}>
-                        <PreviewJoystick style={innerComponentStyle} calculatedSizePx={joystickCalculatedSizePx} />
-                    </WrapperComponent>
-                );
+                innerComponent = <PreviewJoystick style={innerComponentStyle} sizePx={calculatedWidth} />;                
+                break;
             case 'action':
-                return (
-                    <WrapperComponent {...wrapperProps}>
-                        <PreviewActionButton style={innerComponentStyle} label={button.label} />
-                    </WrapperComponent>
-                );
+                innerComponent = <PreviewActionButton style={innerComponentStyle} label={button.label} />;
+                break;
             case 'shoulder':
-                return (
-                    <WrapperComponent {...wrapperProps}>
-                        <PreviewShoulderButton style={innerComponentStyle} label={button.label} />
-                    </WrapperComponent>
-                );
+                innerComponent = <PreviewShoulderButton style={innerComponentStyle} label={button.label} />;
+                break;
             case 'dpad-up':
-                return (
-                    <WrapperComponent {...wrapperProps}>
-                        <PreviewDpadButton style={innerComponentStyle} direction="up" />
-                    </WrapperComponent>
-                );
+                innerComponent = <PreviewDpadButton style={innerComponentStyle} direction="up" />;
+                break;
             case 'dpad-down':
-                return (
-                    <WrapperComponent {...wrapperProps}>
-                        <PreviewDpadButton style={innerComponentStyle} direction="down" />
-                    </WrapperComponent>
-                );
+                innerComponent = <PreviewDpadButton style={innerComponentStyle} direction="down" />;
+                break;
             case 'dpad-left':
-                return (
-                    <WrapperComponent {...wrapperProps}>
-                        <PreviewDpadButton style={innerComponentStyle} direction="back" />
-                    </WrapperComponent>
-                );
+                innerComponent = <PreviewDpadButton style={innerComponentStyle} direction="back" />;
+                break;
             case 'dpad-right':
-                return (
-                    <WrapperComponent {...wrapperProps}>
-                        <PreviewDpadButton style={innerComponentStyle} direction="forward" />
-                    </WrapperComponent>
-                );
+                innerComponent = <PreviewDpadButton style={innerComponentStyle} direction="forward" />;
+                break;
             case 'menu':
-                return (
-                    <WrapperComponent {...wrapperProps}>
-                        <PreviewFloatingButton style={innerComponentStyle} iconName="menu" />
-                    </WrapperComponent>
-                );
+                innerComponent = <PreviewFloatingButton style={innerComponentStyle} iconName="menu" />;
+                break;
             case 'clone':
-                return (
-                    <WrapperComponent {...wrapperProps}>
-                        <PreviewFloatingButton style={innerComponentStyle} iconName="copy" />
-                    </WrapperComponent>
-                );
-            default: return null;
+                innerComponent = <PreviewFloatingButton style={innerComponentStyle} iconName="copy" />;
+                break;
+            default:
+                return null;
         }
-    };
 
+        return (
+            <WrapperComponent key={button.id} {...wrapperProps}>
+                {innerComponent}
+            </WrapperComponent>
+        );
+};
     return (
         <View style={styles.previewContainer}>
             {layout.buttons.map(renderPreviewButton)}
