@@ -27,16 +27,64 @@ const Joystick = ({ style, onMove, buttonId }) => {
   const animatedStickStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }, { translateY: translateY.value }] }));
   return (<GestureDetector gesture={panGesture}><View style={[styles.joystickBase, style]}><Animated.View style={[styles.joystickStick, { width: stickSize, height: stickSize, borderRadius: stickRadius }, animatedStickStyle]} /></View></GestureDetector>);
 };
-const GameButton = ({ style, children, onStateChange, buttonId }) => {
+// MODIFIED: Added 'opacity' prop to support dynamic opacity
+const GameButton = ({ style, opacity: propOpacity, children, onStateChange, buttonId }) => {
   const isPressed = useSharedValue(false);
-  const tapGesture = Gesture.Manual().onTouchesDown(() => { isPressed.value = true; if (onStateChange) runOnJS(onStateChange)(buttonId, true); }).onTouchesUp(() => { isPressed.value = false; if (onStateChange) runOnJS(onStateChange)(buttonId, false); }).onFinalize(() => { if (isPressed.value) { isPressed.value = false; if (onStateChange) runOnJS(onStateChange)(buttonId, false); } });
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: withSpring(isPressed.value ? 0.9 : 1) }], opacity: withSpring(isPressed.value ? 0.8 : 1) }));
-  return (<GestureDetector gesture={tapGesture}><Animated.View style={[style, animatedStyle]}>{children}</Animated.View></GestureDetector>);
+  const tapGesture = Gesture.Manual()
+    .onTouchesDown(() => { 
+      isPressed.value = true; 
+      if (onStateChange) runOnJS(onStateChange)(buttonId, true); 
+    })
+    .onTouchesUp(() => { 
+      isPressed.value = false; 
+      if (onStateChange) runOnJS(onStateChange)(buttonId, false); 
+    })
+    .onFinalize(() => { 
+      if (isPressed.value) { 
+        isPressed.value = false; 
+        if (onStateChange) runOnJS(onStateChange)(buttonId, false); 
+      } 
+    });
+  const animatedStyle = useAnimatedStyle(() => {
+    const baseOpacity = typeof propOpacity === 'number' ? propOpacity : 1; // MODIFIED: Use propOpacity with fallback to 1
+    return {
+      transform: [{ scale: withSpring(isPressed.value ? 0.9 : 1) }],
+      opacity: withSpring(isPressed.value ? baseOpacity * 0.8 : baseOpacity) // MODIFIED: Apply dynamic opacity with press effect
+    };
+  });
+  return (
+    <GestureDetector gesture={tapGesture}>
+      <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>
+    </GestureDetector>
+  );
 };
-const ActionButton = (props) => <GameButton {...props} style={[styles.actionButton, props.style]}><Text style={styles.buttonText}>{props.label}</Text></GameButton>;
-const ShoulderButton = (props) => <GameButton {...props} style={[styles.shoulderButton, props.style]}><Text style={styles.buttonText}>{props.label}</Text></GameButton>;
-const DpadButton = (props) => <GameButton {...props} style={[styles.dpadShape, props.style]}><Ionicons name={`caret-${props.direction}-outline`} size={24} color="#FFF" /></GameButton>;
-const FloatingButton = (props) => <GameButton {...props} style={[styles.floatingButton, props.style]}><Feather name={props.iconName} size={20} color="#FFF" /></GameButton>;
+// MODIFIED: Added 'opacity' prop to ActionButton
+const ActionButton = (props) => (
+  <GameButton {...props} style={[styles.actionButton, props.style]} opacity={props.style?.opacity}>
+    <Text style={styles.buttonText}>{props.label}</Text>
+  </GameButton>
+);
+
+// MODIFIED: Added 'opacity' prop to ShoulderButton
+const ShoulderButton = (props) => (
+  <GameButton {...props} style={[styles.shoulderButton, props.style]} opacity={props.style?.opacity}>
+    <Text style={styles.buttonText}>{props.label}</Text>
+  </GameButton>
+);
+
+// MODIFIED: Added 'opacity' prop to DpadButton, FIXED: Corrected closing tag and Ionicons syntax
+const DpadButton = (props) => (
+  <GameButton {...props} style={[styles.dpadShape, props.style]} opacity={props.style?.opacity}>
+    <Ionicons name={`caret-${props.direction}-outline`} size={24} color="#FFF" />
+  </GameButton> // FIXED: Changed </DpadButton> to </GameButton>
+);
+
+// MODIFIED: Added 'opacity' prop to FloatingButton
+const FloatingButton = (props) => (
+  <GameButton {...props} style={[styles.floatingButton, props.style]} opacity={props.style?.opacity}>
+    <Feather name={props.iconName} size={20} color="#FFF" />
+  </GameButton>
+);
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -151,8 +199,12 @@ export default function GamepadScreen({ route, navigation }) {
     } else {
       width = (button.width / 100) * landscapeWidth; height = (button.height / 100) * landscapeHeight;
     }
-    const absoluteStyle = { position: 'absolute', left: (button.x / 100) * landscapeWidth - width / 2, top: (button.y / 100) * landscapeHeight - height / 2, width, height };
-    const props = { buttonId: button.id, style: absoluteStyle, onStateChange: handleButtonStateChange };
+    const absoluteStyle = { position: 'absolute', left: (button.x / 100) * landscapeWidth - width / 2, top: (button.y / 100) * landscapeHeight - height / 2, width, height, 
+      // ADDED: Set opacity based on button.opacity or default to 1
+      opacity: typeof button.opacity === 'number' ? button.opacity : 1 };
+    const props = { buttonId: button.id, style: absoluteStyle, onStateChange: handleButtonStateChange, 
+      // MODIFIED: Added opacity prop
+      opacity: absoluteStyle.opacity };
     switch (button.type) {
       case 'joystick': return <Joystick key={button.id} {...props} onMove={handleJoystickMove} />;
       case 'action': return <ActionButton key={button.id} {...props} label={button.label} />;

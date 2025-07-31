@@ -47,7 +47,8 @@ export default function TouchableLayoutPreview({ layout, size, activeMenu, onSel
             ],
             width: calculatedWidth,  
             height: calculatedHeight,
-            //opacity: typeof button.opacity === 'number' ? button.opacity : 1, 
+            //Added opacity
+            opacity: typeof button.opacity === 'number' ? button.opacity : 1,
         };
 
         const isSelected = selectedButtonId === button.id;

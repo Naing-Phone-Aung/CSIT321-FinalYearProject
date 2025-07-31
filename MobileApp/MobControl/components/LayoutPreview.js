@@ -45,6 +45,8 @@ export default function LayoutPreview({ layout, size }) {
       ],
       width,
       height,
+      //Added opacity
+      opacity: typeof button.opacity === 'number' ? button.opacity : 1,
     };
 
     const props = { style: absoluteStyle };

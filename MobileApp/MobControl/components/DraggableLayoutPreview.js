@@ -64,7 +64,8 @@ const DraggableButton = ({ button, previewSize, onMoveEnd }) => {
       { translateY: translateY.value },
       { scale: withSpring(isDragging.value ? 1.1 : 1) }
     ],
-    opacity: withSpring(isDragging.value ? 0.8 : 1),
+    //Edited opacity
+    opacity: withSpring(isDragging.value ? Math.min(0.8, typeof button.opacity === 'number' ? button.opacity : 1) : (typeof button.opacity === 'number' ? button.opacity : 1)),
     zIndex: isDragging.value ? 999 : 1,
   }));
 

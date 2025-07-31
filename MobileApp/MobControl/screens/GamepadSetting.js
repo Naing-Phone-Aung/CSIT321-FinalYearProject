@@ -157,7 +157,16 @@ export default function GamepadSettingScreen({ route }) {
             setSizeValue(sliderNormalizedValue); // Still update slider for visual feedback
         }
     };
-
+    //Added opacity function
+    const handleUpdateButtonOpacity = (sliderNormalizedValue) => {
+        setOpacityValue(sliderNormalizedValue);
+        setCurrentLayout(prev => ({
+            ...prev,
+            buttons: prev.buttons.map(b =>
+            selectedButtonId ? (b.id === selectedButtonId ? { ...b, opacity: sliderNormalizedValue } : b) : { ...b, opacity: sliderNormalizedValue }
+            ),
+        }));
+    };
 
     const getPreviewSize = () => {
         if (!wrapperSize) return null;
