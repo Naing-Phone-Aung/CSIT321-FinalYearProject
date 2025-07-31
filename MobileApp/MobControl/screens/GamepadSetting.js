@@ -71,6 +71,7 @@ export default function GamepadSettingScreen({ route }) {
     }, [selectedButtonId, currentLayout, activeMenu, originalButtonSize]); 
 
     const handleUpdateLayout = (newLayout) => { setCurrentLayout(newLayout); };
+    
     const handleResetLayout = () => {
         Alert.alert(
             "Reset Layout",
