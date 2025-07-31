@@ -1,4 +1,4 @@
-//context/useConnection
+// context/useConnection.js
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AppState, Alert } from 'react-native';
@@ -91,26 +91,19 @@ export const ConnectionProvider = ({ children }) => {
     setConnectedPCInfo(null);
     webSocketRef.current = null;
   }, []);
-
-  // ----- THIS IS THE CORRECTED FUNCTION -----
+  
   const connectToPC = useCallback((pc) => {
     if (connectionStatus !== 'disconnected') return;
 
-    // The address we use for the actual WebSocket connection (may contain '/qr')
     const connectionAddress = pc.address;
-
-    // The clean PC info object we store in state (guaranteed to NOT have '/qr')
-    const pcInfoForState = {
-        ...pc,
-        address: pc.address.replace('/qr', ''),
-    };
+    const pcInfoForState = { ...pc, address: pc.address.replace('/qr', '') };
     
     setConnectionStatus('connecting');
-    setConnectedPCInfo(pcInfoForState); // Use the clean address for UI state
+    setConnectedPCInfo(pcInfoForState);
 
     if (webSocketRef.current) webSocketRef.current.close();
     
-    const ws = new WebSocket(connectionAddress); // Connect using the original address
+    const ws = new WebSocket(connectionAddress);
     webSocketRef.current = ws;
 
     ws.onopen = () => console.log("[WS-CLIENT] Connection opened, pending verification.");
@@ -156,6 +149,18 @@ export const ConnectionProvider = ({ children }) => {
       webSocketRef.current.send(JSON.stringify(data));
     }
   }, []);
+  
+  // --- This is the key function for keyboard input ---
+  const sendTextMessage = useCallback((text) => {
+    if (webSocketRef.current?.readyState === WebSocket.OPEN) {
+      const message = { type: 'text', payload: text };
+      webSocketRef.current.send(JSON.stringify(message));
+      console.log(`[WS-CLIENT] Sent text: ${text}`);
+    } else {
+      console.warn("[WS-CLIENT] Could not send text, socket not open.");
+      Alert.alert("Not Connected", "Cannot send text. Please connect to a PC first.");
+    }
+  }, []);
 
   const value = useMemo(() => ({
     discoveredPCs,
@@ -166,8 +171,9 @@ export const ConnectionProvider = ({ children }) => {
     disconnect,
     rescan,
     sendMessage,
+    sendTextMessage, // <-- The function is exported here
     verifyWithOtp,
-  }), [discoveredPCs, isScanning, connectionStatus, connectedPCInfo, connectToPC, disconnect, rescan, sendMessage, verifyWithOtp]);
+  }), [discoveredPCs, isScanning, connectionStatus, connectedPCInfo, connectToPC, disconnect, rescan, sendMessage, sendTextMessage, verifyWithOtp]);
 
   return (
     <ConnectionContext.Provider value={value}>

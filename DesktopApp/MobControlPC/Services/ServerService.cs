@@ -1,3 +1,5 @@
+// PC side/Services/ServerService.cs
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -15,6 +17,11 @@ using Nefarius.ViGEm.Client;
 using Nefarius.ViGEm.Client.Targets;
 using Nefarius.ViGEm.Client.Targets.Xbox360;
 using Windows.Networking.Connectivity;
+// THIS IS THE NEW LIBRARY'S NAMESPACE.
+// IT IS INTENTIONALLY THE SAME, BUT THE UNDERLYING DLL WILL BE DIFFERENT.
+using WindowsInput;
+using WindowsInput.Native;
+
 
 namespace MobControlPC.Services
 {
@@ -54,14 +61,16 @@ namespace MobControlPC.Services
         private readonly Dictionary<Guid, IWebSocketConnection> _clientSockets = new();
         private readonly ViGEmClient? _vigemClient;
         
+        // THIS CODE USES THE NEW LIBRARY
+        private readonly IInputSimulator _inputSimulator;
+        
         private const int DiscoveryPort = 15000;
         private CancellationTokenSource? _discoveryCts;
 
         private Timer? _heartbeatTimer;
         private Timer? _otpTimer;
         private readonly Random _random = new Random();
-
-        // THE FIX IS RELATED TO THESE VALUES AND HOW THEY ARE USED
+        
         private readonly TimeSpan _clientTimeoutDuration = TimeSpan.FromSeconds(10); 
         private readonly TimeSpan _pingInterval = TimeSpan.FromSeconds(3); 
 
@@ -70,6 +79,9 @@ namespace MobControlPC.Services
             DeviceName = Environment.MachineName;
             LocalIP = GetLocalIPAddress() ?? "127.0.0.1";
             ServerAddress = $"ws://{LocalIP}:8181";
+            
+            // THIS LINE INSTANTIATES THE SIMULATOR FROM THE NEW LIBRARY
+            _inputSimulator = new InputSimulator();
 
             try { _vigemClient = new ViGEmClient(); }
             catch (Exception ex) { Console.WriteLine($"FATAL: ViGEmBus driver not found. Error: {ex.Message}"); _vigemClient = null; }
@@ -77,7 +89,10 @@ namespace MobControlPC.Services
 
         public void Start()
         {
-            if (_vigemClient == null) return;
+            if (_vigemClient == null) 
+            {
+                Console.WriteLine("ViGEmBus not found. Gamepad emulation will be disabled.");
+            }
             try
             {
                 GenerateQrCode();
@@ -122,7 +137,7 @@ namespace MobControlPC.Services
                 Id = socket.ConnectionInfo.Id, 
                 IpAddress = socket.ConnectionInfo.ClientIpAddress,
                 Method = isQrConnection ? ConnectionMethod.QRCode : ConnectionMethod.Manual,
-                IsVerified = isQrConnection, // Auto-verify if connected via QR
+                IsVerified = isQrConnection, 
                 Controller = null,
                 LastHeartbeat = DateTime.UtcNow 
             };
@@ -130,7 +145,7 @@ namespace MobControlPC.Services
             _clientSockets.Add(clientInfo.Id, socket);
             ConnectedClients.Add(clientInfo);
             
-            if (isQrConnection)
+            if (isQrConnection && _vigemClient != null)
             {
                 Console.WriteLine($"[WS-SERVER] QR Connection detected. Auto-verifying client {clientInfo.Id}.");
                 try
@@ -149,45 +164,29 @@ namespace MobControlPC.Services
             NotifyStateChanged();
         }
 
-// --- ROBUST METHOD ---
-// This version is safer and won't cause issues if a client is already removed.
-private void HandleClientDisconnected(IWebSocketConnection socket)
-{
-    var client = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
-    // Only proceed if the client actually still exists in our lists.
-    if (client != null)
-    {
-        Console.WriteLine($"[WS-SERVER] Client '{client.Name}' disconnected gracefully.");
-        
-        // Perform the full cleanup routine.
-        client.Controller?.Disconnect();
-        _clientSockets.Remove(client.Id);
-        int clientsRemoved = ConnectedClients.RemoveAll(c => c.Id == client.Id);
-
-        // Only update the UI if a client was actually removed by this method.
-        if (clientsRemoved > 0)
+        private void HandleClientDisconnected(IWebSocketConnection socket)
         {
-            NotifyStateChanged();
+            var client = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
+            if (client != null)
+            {
+                Console.WriteLine($"[WS-SERVER] Client '{client.Name}' disconnected gracefully.");
+                client.Controller?.Disconnect();
+                _clientSockets.Remove(client.Id);
+                int clientsRemoved = ConnectedClients.RemoveAll(c => c.Id == client.Id);
+                if (clientsRemoved > 0)
+                {
+                    NotifyStateChanged();
+                }
+            }
         }
-    }
-}
 
-        // --- FIXED METHOD ---
-        // The logic here was changed to correctly handle pong messages.
-        // Previously, LastHeartbeat was updated for ALL messages at the start,
-        // which prevented the ping-pong loop from working correctly.
         private void HandleClientMessage(IWebSocketConnection socket, string message)
         {
             var client = ConnectedClients.FirstOrDefault(c => c.Id == socket.ConnectionInfo.Id);
             if (client == null) return;
 
-            // The client is alive, so we update their heartbeat time.
-            // This is the key change: We now update the heartbeat for pong messages too,
-            // and we stop processing the "pong" message right after.
             client.LastHeartbeat = DateTime.UtcNow;
 
-            // If the message is a "pong", its only job is to update the heartbeat,
-            // so we return immediately and don't process it further.
             if (message.Contains("\"type\":\"pong\"")) return;
             
             if (client.Name == "Unknown Device" && !message.StartsWith("{")) 
@@ -202,13 +201,20 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
             {
                 var input = JObject.Parse(message);
                 string? type = input["type"]?.ToString();
-
+                
+                if (type == "text")
+                {
+                    HandleTextInput(input["payload"]?.ToString());
+                    return; 
+                }
+                
                 if (type == "otp_verify")
                 {
                     HandleOtpVerification(client, input["otp"]?.ToString());
                     return;
                 }
-                if (!client.IsVerified || client.Controller == null) return;
+                if (!client.IsVerified) return;
+
                 var gamepadInput = input.ToObject<GamepadInput>();
                 if (gamepadInput == null) return;
                 
@@ -227,6 +233,15 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
             }
             catch (Exception ex) { Console.WriteLine($"[SERVER ERROR] Message processing failed: '{message}'. Error: {ex.Message}"); }
         }
+        
+        private void HandleTextInput(string? text)
+        {
+            if (!string.IsNullOrEmpty(text))
+            {
+                Console.WriteLine($"[INPUT] Typing text: {text}");
+                _inputSimulator.Keyboard.TextEntry(text);
+            }
+        }
 
         private void HandleOtpVerification(ClientInfo client, string? receivedOtp)
         {
@@ -235,19 +250,22 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
             {
                 Console.WriteLine($"[WS-SERVER] OTP verification successful for client {client.Id}.");
                 client.IsVerified = true;
-                try
+                if (_vigemClient != null)
                 {
-                    var controller = _vigemClient.CreateXbox360Controller();
-                    controller.Connect();
-                    client.Controller = controller;
-                    _clientSockets[client.Id].Send("{\"type\":\"connection_success\"}");
-                    NotifyStateChanged();
+                    try
+                    {
+                        var controller = _vigemClient.CreateXbox360Controller();
+                        controller.Connect();
+                        client.Controller = controller;
+                        _clientSockets[client.Id].Send("{\"type\":\"connection_success\"}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[WS-SERVER] FATAL ERROR: Failed to create virtual controller post-verification. Reason: {ex}");
+                        client.IsVerified = false;
+                    }
                 }
-                catch (Exception ex)
-                {
-                     Console.WriteLine($"[WS-SERVER] FATAL ERROR: Failed to create virtual controller post-verification. Reason: {ex}");
-                     client.IsVerified = false;
-                }
+                NotifyStateChanged();
             }
             else
             {
@@ -298,7 +316,7 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
                 {
                     using var udpClient = new UdpClient { EnableBroadcast = true };
                     var broadcastEndpoint = new IPEndPoint(IPAddress.Broadcast, DiscoveryPort);
-                    var message = $"MOB_CONTROL_SERVER|{DeviceName}|{ServerAddress}";
+                    var message = $"MOB_CONTROL_SERVER|{DeviceName}|ws://{LocalIP}:8181"; 
                     var messageBytes = Encoding.UTF8.GetBytes(message);
                     while (!_discoveryCts.IsCancellationRequested)
                     {
@@ -316,68 +334,50 @@ private void HandleClientDisconnected(IWebSocketConnection socket)
             _heartbeatTimer = new Timer(CheckClientConnections, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
         }
 
-        // --- FIXED METHOD ---
-        // This logic is now more robust. It iterates a copy of the clients,
-        // checks for a timeout first, and only then checks if it needs to send a ping.
-        // --- FIXED METHOD ---
-// This version now manually removes timed-out clients to prevent "zombie" connections.
-private void CheckClientConnections(object? state)
-{
-    // A list to hold clients that we need to remove after checking everyone.
-    var clientsToRemove = new List<ClientInfo>();
-    var now = DateTime.UtcNow;
-    const string pingMessage = "{\"type\":\"ping\"}";
-
-    // Iterate over a copy of the list to avoid errors while modifying the original.
-    foreach (var clientInfo in ConnectedClients.ToList())
-    {
-        if (!_clientSockets.TryGetValue(clientInfo.Id, out var socket))
+        private void CheckClientConnections(object? state)
         {
-            // If socket is missing, mark client for removal.
-            clientsToRemove.Add(clientInfo);
-            continue;
-        }
+            var clientsToRemove = new List<ClientInfo>();
+            var now = DateTime.UtcNow;
+            const string pingMessage = "{\"type\":\"ping\"}";
 
-        // --- Timeout Logic ---
-        if (now - clientInfo.LastHeartbeat > _clientTimeoutDuration)
-        {
-            Console.WriteLine($"[HEARTBEAT] Client '{clientInfo.Name}' timed out. Closing connection and removing.");
-            socket.Close();
-            clientsToRemove.Add(clientInfo); // Add the client to our removal list.
-            continue; // Move to the next client.
-        }
-
-        // --- Ping Logic ---
-        if (now - clientInfo.LastHeartbeat > _pingInterval)
-        {
-            if (socket.IsAvailable)
+            foreach (var clientInfo in ConnectedClients.ToList())
             {
-                socket.Send(pingMessage);
+                if (!_clientSockets.TryGetValue(clientInfo.Id, out var socket))
+                {
+                    clientsToRemove.Add(clientInfo);
+                    continue;
+                }
+                if (now - clientInfo.LastHeartbeat > _clientTimeoutDuration)
+                {
+                    Console.WriteLine($"[HEARTBEAT] Client '{clientInfo.Name}' timed out. Closing connection and removing.");
+                    socket.Close();
+                    clientsToRemove.Add(clientInfo);
+                    continue;
+                }
+                if (now - clientInfo.LastHeartbeat > _pingInterval)
+                {
+                    if (socket.IsAvailable)
+                    {
+                        socket.Send(pingMessage);
+                    }
+                }
+            }
+
+            if (clientsToRemove.Any())
+            {
+                foreach (var client in clientsToRemove)
+                {
+                    client.Controller?.Disconnect();
+                    _clientSockets.Remove(client.Id);
+                    ConnectedClients.RemoveAll(c => c.Id == client.Id);
+                }
+                NotifyStateChanged();
             }
         }
-    }
-
-    // --- Cleanup Logic ---
-    // Now, remove all the clients that were marked for removal.
-    if (clientsToRemove.Any())
-    {
-        foreach (var client in clientsToRemove)
-        {
-            // Perform the full cleanup routine.
-            client.Controller?.Disconnect();
-            _clientSockets.Remove(client.Id);
-            ConnectedClients.RemoveAll(c => c.Id == client.Id);
-        }
-        
-        // Notify the UI that the client list has changed.
-        NotifyStateChanged();
-    }
-}
 
         private void GenerateQrCode()
         {
-            // The QR code for auto-connection should point to the special /qr path
-            string qrCodePayload = $"MOB_CONTROL_SERVER|{this.DeviceName}|{this.ServerAddress}";
+            string qrCodePayload = $"MOB_CONTROL_SERVER|{this.DeviceName}|{this.ServerAddress}/qr";
             var qrGenerator = new QRCodeGenerator();
             var qrCodeData = qrGenerator.CreateQrCode(qrCodePayload, QRCodeGenerator.ECCLevel.Q);
             var pngQrCode = new PngByteQRCode(qrCodeData);
@@ -399,7 +399,6 @@ private void CheckClientConnections(object? state)
             }
             catch 
             {
-                // Fallback for when there's no internet connection
                 return NetworkInformation.GetHostNames()
                     .FirstOrDefault(h => h.Type == Windows.Networking.HostNameType.Ipv4)?
                     .ToString();

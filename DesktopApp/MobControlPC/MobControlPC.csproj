@@ -59,6 +59,7 @@
 
     <ItemGroup>
         <PackageReference Include="Fleck" Version="1.2.0" />
+        <PackageReference Include="InputSimulatorPlus" Version="1.0.7" />
         <PackageReference Include="Makaretu.Dns.Multicast" Version="0.27.0" />
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="$(MauiVersion)" />
