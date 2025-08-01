@@ -1,4 +1,4 @@
-// connect.js
+// screens/connect.js
 
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Platform, Alert, Pressable } from 'react-native';

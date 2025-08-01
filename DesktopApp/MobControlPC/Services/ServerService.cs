@@ -1,5 +1,3 @@
-// PC side/Services/ServerService.cs
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -17,11 +15,8 @@ using Nefarius.ViGEm.Client;
 using Nefarius.ViGEm.Client.Targets;
 using Nefarius.ViGEm.Client.Targets.Xbox360;
 using Windows.Networking.Connectivity;
-// THIS IS THE NEW LIBRARY'S NAMESPACE.
-// IT IS INTENTIONALLY THE SAME, BUT THE UNDERLYING DLL WILL BE DIFFERENT.
 using WindowsInput;
 using WindowsInput.Native;
-
 
 namespace MobControlPC.Services
 {
@@ -34,7 +29,7 @@ namespace MobControlPC.Services
         public double? Y { get; set; }
     }
 
-    public enum ConnectionMethod { Manual, QRCode } 
+    public enum ConnectionMethod { Manual, QRCode }
     public class ClientInfo
     {
         public Guid Id { get; set; }
@@ -56,31 +51,25 @@ namespace MobControlPC.Services
         public List<ClientInfo> ConnectedClients { get; private set; } = new();
         public bool IsAnyClientConnected => ConnectedClients.Any(c => c.IsVerified);
         public event PropertyChangedEventHandler? PropertyChanged;
-        
+
         private WebSocketServer? _server;
         private readonly Dictionary<Guid, IWebSocketConnection> _clientSockets = new();
         private readonly ViGEmClient? _vigemClient;
-        
-        // THIS CODE USES THE NEW LIBRARY
         private readonly IInputSimulator _inputSimulator;
-        
+
         private const int DiscoveryPort = 15000;
         private CancellationTokenSource? _discoveryCts;
-
         private Timer? _heartbeatTimer;
         private Timer? _otpTimer;
         private readonly Random _random = new Random();
-        
-        private readonly TimeSpan _clientTimeoutDuration = TimeSpan.FromSeconds(10); 
-        private readonly TimeSpan _pingInterval = TimeSpan.FromSeconds(3); 
+        private readonly TimeSpan _clientTimeoutDuration = TimeSpan.FromSeconds(10);
+        private readonly TimeSpan _pingInterval = TimeSpan.FromSeconds(3);
 
         public ServerService()
         {
             DeviceName = Environment.MachineName;
             LocalIP = GetLocalIPAddress() ?? "127.0.0.1";
             ServerAddress = $"ws://{LocalIP}:8181";
-            
-            // THIS LINE INSTANTIATES THE SIMULATOR FROM THE NEW LIBRARY
             _inputSimulator = new InputSimulator();
 
             try { _vigemClient = new ViGEmClient(); }
@@ -89,7 +78,7 @@ namespace MobControlPC.Services
 
         public void Start()
         {
-            if (_vigemClient == null) 
+            if (_vigemClient == null)
             {
                 Console.WriteLine("ViGEmBus not found. Gamepad emulation will be disabled.");
             }
@@ -103,7 +92,7 @@ namespace MobControlPC.Services
             }
             catch (Exception ex) { Console.WriteLine($"FATAL: Could not start services. Reason: {ex.Message}"); }
         }
-        
+
         private void StartOtpGeneration() => _otpTimer = new Timer(GenerateNewOtp, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
 
         private void GenerateNewOtp(object? state)
@@ -132,19 +121,19 @@ namespace MobControlPC.Services
             Console.WriteLine($"[WS-SERVER] Client connecting from path: '{socket.ConnectionInfo.Path}'");
             var isQrConnection = socket.ConnectionInfo.Path.Equals("/qr", StringComparison.OrdinalIgnoreCase);
 
-            var clientInfo = new ClientInfo 
-            { 
-                Id = socket.ConnectionInfo.Id, 
+            var clientInfo = new ClientInfo
+            {
+                Id = socket.ConnectionInfo.Id,
                 IpAddress = socket.ConnectionInfo.ClientIpAddress,
                 Method = isQrConnection ? ConnectionMethod.QRCode : ConnectionMethod.Manual,
-                IsVerified = isQrConnection, 
+                IsVerified = isQrConnection,
                 Controller = null,
-                LastHeartbeat = DateTime.UtcNow 
+                LastHeartbeat = DateTime.UtcNow
             };
-            
+
             _clientSockets.Add(clientInfo.Id, socket);
             ConnectedClients.Add(clientInfo);
-            
+
             if (isQrConnection && _vigemClient != null)
             {
                 Console.WriteLine($"[WS-SERVER] QR Connection detected. Auto-verifying client {clientInfo.Id}.");
@@ -188,36 +177,53 @@ namespace MobControlPC.Services
             client.LastHeartbeat = DateTime.UtcNow;
 
             if (message.Contains("\"type\":\"pong\"")) return;
-            
-            if (client.Name == "Unknown Device" && !message.StartsWith("{")) 
-            { 
-                client.Name = message; 
+
+            if (client.Name == "Unknown Device" && !message.StartsWith("{"))
+            {
+                client.Name = message;
                 Console.WriteLine($"[WS-SERVER] Client {client.Id} identified as '{client.Name}'.");
                 NotifyStateChanged();
-                return; 
+                return;
             }
 
             try
             {
                 var input = JObject.Parse(message);
                 string? type = input["type"]?.ToString();
-                
-                if (type == "text")
+
+                switch (type)
                 {
-                    HandleTextInput(input["payload"]?.ToString());
-                    return; 
+                    case "text":
+                        HandleTextInput(input["payload"]?.ToString());
+                        return;
+                    case "otp_verify":
+                        HandleOtpVerification(client, input["otp"]?.ToString());
+                        return;
+                    case "gyro":
+                        HandleGyroInput(client, input);
+                        return;
+                    case "mouse_move":
+                        HandleMouseMove(input["dx"]?.Value<double>(), input["dy"]?.Value<double>());
+                        return;
+                    case "mouse_scroll":
+                        HandleMouseScroll(input["dy"]?.Value<int>());
+                        return;
+                    case "mouse_click":
+                        HandleMouseClick(input["button"]?.ToString());
+                        return;
+                    case "mouse_down":
+                        HandleMouseDown(input["button"]?.ToString());
+                        return;
+                    case "mouse_up":
+                        HandleMouseUp(input["button"]?.ToString());
+                        return;
                 }
-                
-                if (type == "otp_verify")
-                {
-                    HandleOtpVerification(client, input["otp"]?.ToString());
-                    return;
-                }
+
                 if (!client.IsVerified) return;
 
                 var gamepadInput = input.ToObject<GamepadInput>();
                 if (gamepadInput == null) return;
-                
+
                 if (client.Controller != null)
                 {
                     switch (gamepadInput.Type)
@@ -233,7 +239,90 @@ namespace MobControlPC.Services
             }
             catch (Exception ex) { Console.WriteLine($"[SERVER ERROR] Message processing failed: '{message}'. Error: {ex.Message}"); }
         }
-        
+
+        private void HandleMouseMove(double? dx, double? dy)
+        {
+            if (dx.HasValue && dy.HasValue)
+            {
+                _inputSimulator.Mouse.MoveMouseBy((int)dx.Value, (int)dy.Value);
+            }
+        }
+
+        private void HandleMouseClick(string? button)
+        {
+            if (string.IsNullOrEmpty(button)) return;
+            switch (button.ToLower())
+            {
+                case "left":
+                    _inputSimulator.Mouse.LeftButtonClick();
+                    break;
+                case "right":
+                    _inputSimulator.Mouse.RightButtonClick();
+                    break;
+                case "middle":
+                    _inputSimulator.Mouse.MiddleButtonClick();
+                    break;
+            }
+        }
+
+        private void HandleMouseDown(string? button)
+        {
+            if (string.IsNullOrEmpty(button)) return;
+            switch (button.ToLower())
+            {
+                case "left":
+                    _inputSimulator.Mouse.LeftButtonDown();
+                    break;
+                case "right":
+                    _inputSimulator.Mouse.RightButtonDown();
+                    break;
+            }
+        }
+
+        private void HandleMouseUp(string? button)
+        {
+            if (string.IsNullOrEmpty(button)) return;
+            switch (button.ToLower())
+            {
+                case "left":
+                    _inputSimulator.Mouse.LeftButtonUp();
+                    break;
+                case "right":
+                    _inputSimulator.Mouse.RightButtonUp();
+                    break;
+            }
+        }
+
+        private void HandleMouseScroll(int? dy)
+        {
+            if (dy.HasValue)
+            {
+                _inputSimulator.Mouse.VerticalScroll(dy.Value);
+            }
+        }
+
+        private void HandleGyroInput(ClientInfo client, JObject input)
+        {
+            if (client?.Controller == null || !client.IsVerified) return;
+
+            const double SENSITIVITY = 2.0;
+            const double DEADZONE = 0.05;
+
+            double? gyroX = input["x"]?.Value<double>();
+            double? gyroY = input["y"]?.Value<double>();
+
+            if (gyroX == null || gyroY == null) return;
+
+            double finalX = Math.Abs(gyroX.Value) > DEADZONE ? gyroX.Value : 0;
+            double finalY = Math.Abs(gyroY.Value) > DEADZONE ? gyroY.Value : 0;
+
+            var stickX = (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, finalX * SENSITIVITY * (short.MaxValue / 10.0)));
+            var stickY = (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, finalY * SENSITIVITY * (short.MaxValue / 10.0) * -1));
+
+            client.Controller.SetAxisValue(Xbox360Axis.RightThumbX, stickX);
+            client.Controller.SetAxisValue(Xbox360Axis.RightThumbY, stickY);
+        }
+
         private void HandleTextInput(string? text)
         {
             if (!string.IsNullOrEmpty(text))
@@ -273,24 +362,32 @@ namespace MobControlPC.Services
                 _clientSockets[client.Id].Send("{\"type\":\"otp_failure\", \"message\":\"Invalid OTP\"}");
             }
         }
-        
+
         private void HandleButtonInput(IXbox360Controller controller, GamepadInput input)
         {
             if (input.Pressed == null) return;
             bool isPressed = input.Pressed.Value;
             Xbox360Button? button = input.Id switch
             {
-                "btn_a" => Xbox360Button.A, "btn_b" => Xbox360Button.B, "btn_x" => Xbox360Button.X,
-                "btn_y" => Xbox360Button.Y, "btn_lb" => Xbox360Button.LeftShoulder, "btn_rb" => Xbox360Button.RightShoulder,
-                "dpad-up" => Xbox360Button.Up, "dpad-down" => Xbox360Button.Down, "dpad-left" => Xbox360Button.Left,
-                "dpad-right" => Xbox360Button.Right, "menu" => Xbox360Button.Start, "clone" => Xbox360Button.Back,
+                "btn_a" => Xbox360Button.A,
+                "btn_b" => Xbox360Button.B,
+                "btn_x" => Xbox360Button.X,
+                "btn_y" => Xbox360Button.Y,
+                "btn_lb" => Xbox360Button.LeftShoulder,
+                "btn_rb" => Xbox360Button.RightShoulder,
+                "dpad-up" => Xbox360Button.Up,
+                "dpad-down" => Xbox360Button.Down,
+                "dpad-left" => Xbox360Button.Left,
+                "dpad-right" => Xbox360Button.Right,
+                "menu" => Xbox360Button.Start,
+                "clone" => Xbox360Button.Back,
                 _ => null
             };
             if (button != null) controller.SetButtonState(button, isPressed);
-            else if(input.Id == "btn_lt" || input.Id == "btn_rt")
+            else if (input.Id == "btn_lt" || input.Id == "btn_rt")
             {
                 byte value = isPressed ? (byte)255 : (byte)0;
-                if(input.Id == "btn_lt") controller.SetSliderValue(Xbox360Slider.LeftTrigger, value);
+                if (input.Id == "btn_lt") controller.SetSliderValue(Xbox360Slider.LeftTrigger, value);
                 else controller.SetSliderValue(Xbox360Slider.RightTrigger, value);
             }
         }
@@ -316,7 +413,7 @@ namespace MobControlPC.Services
                 {
                     using var udpClient = new UdpClient { EnableBroadcast = true };
                     var broadcastEndpoint = new IPEndPoint(IPAddress.Broadcast, DiscoveryPort);
-                    var message = $"MOB_CONTROL_SERVER|{DeviceName}|ws://{LocalIP}:8181"; 
+                    var message = $"MOB_CONTROL_SERVER|{DeviceName}|ws://{LocalIP}:8181";
                     var messageBytes = Encoding.UTF8.GetBytes(message);
                     while (!_discoveryCts.IsCancellationRequested)
                     {
@@ -324,7 +421,7 @@ namespace MobControlPC.Services
                         await Task.Delay(3000, _discoveryCts.Token);
                     }
                 }
-                catch (TaskCanceledException) {}
+                catch (TaskCanceledException) { }
                 catch (Exception ex) { Console.WriteLine($"UDP Broadcast Error: {ex.Message}"); }
             }, _discoveryCts.Token);
         }
@@ -377,11 +474,11 @@ namespace MobControlPC.Services
 
         private void GenerateQrCode()
         {
-            string qrCodePayload = $"MOB_CONTROL_SERVER|{this.DeviceName}|{this.ServerAddress}/qr";
+            string qrCodePayload = $"MOB_CONTROL_SERVER|{this.DeviceName}|{this.ServerAddress}";
             var qrGenerator = new QRCodeGenerator();
             var qrCodeData = qrGenerator.CreateQrCode(qrCodePayload, QRCodeGenerator.ECCLevel.Q);
             var pngQrCode = new PngByteQRCode(qrCodeData);
-            QrCodeImage = $"data:image/png;base64,{Convert.ToBase64String(pngQrCode.GetGraphic(20))}";
+QrCodeImage = $"data:image/png;base64,{Convert.ToBase64String(pngQrCode.GetGraphic(20))}";
         }
 
         public void DisconnectClient(Guid clientId)
@@ -391,13 +488,13 @@ namespace MobControlPC.Services
 
         private string? GetLocalIPAddress()
         {
-            try 
+            try
             {
                 using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
                 socket.Connect("8.8.8.8", 65530);
                 return (socket.LocalEndPoint as IPEndPoint)?.Address.ToString();
             }
-            catch 
+            catch
             {
                 return NetworkInformation.GetHostNames()
                     .FirstOrDefault(h => h.Type == Windows.Networking.HostNameType.Ipv4)?
@@ -410,8 +507,8 @@ namespace MobControlPC.Services
             _discoveryCts?.Cancel();
             _otpTimer?.Dispose();
             _heartbeatTimer?.Dispose();
-            foreach(var client in ConnectedClients) { client.Controller?.Disconnect(); }
-            foreach(var socket in _clientSockets.Values) { socket.Close(); }
+            foreach (var client in ConnectedClients) { client.Controller?.Disconnect(); }
+            foreach (var socket in _clientSockets.Values) { socket.Close(); }
             _vigemClient?.Dispose();
             _server?.Dispose();
         }

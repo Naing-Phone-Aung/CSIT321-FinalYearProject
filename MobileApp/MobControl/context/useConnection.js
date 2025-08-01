@@ -171,7 +171,7 @@ export const ConnectionProvider = ({ children }) => {
     disconnect,
     rescan,
     sendMessage,
-    sendTextMessage, // <-- The function is exported here
+    sendTextMessage, 
     verifyWithOtp,
   }), [discoveredPCs, isScanning, connectionStatus, connectedPCInfo, connectToPC, disconnect, rescan, sendMessage, sendTextMessage, verifyWithOtp]);
 

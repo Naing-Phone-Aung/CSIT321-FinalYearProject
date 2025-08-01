@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Import useCallback
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext';
-// Import useFocusEffect
-import { useNavigation, useFocusEffect } from '@react-navigation/native'; 
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { loadLayouts, saveLayouts, createDefaultLayout } from '../services/LayoutService';
 import EditLayoutModal from '../components/EditLayoutName';
 import ConfirmationModal from '../components/Confirmation';
@@ -54,6 +53,14 @@ const LayoutCard = ({ layout, onEdit, onDelete, navigation }) => {
     </TouchableOpacity>
   );
 };
+const TouchpadCard = ({ navigation, theme }) => (
+    <TouchableOpacity onPress={() => navigation.navigate('Touchpad')}>
+        <View style={[styles.touchpadCard, { backgroundColor: theme.colors.card }]}>
+            <Feather name="mouse-pointer" size={24} color={theme.colors.primary} />
+            <Text style={[styles.touchpadCardText, { color: theme.colors.text }]}>Touchpad</Text>
+        </View>
+    </TouchableOpacity>
+);
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -66,11 +73,10 @@ export default function HomeScreen() {
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deletingLayout, setDeletingLayout] = useState(null);
 
-  // --- THIS IS THE CORRECTED DATA FETCHING LOGIC ---
   useFocusEffect(
     useCallback(() => {
       const fetchLayouts = async () => {
-        setIsLoading(true); // Show loader while fetching
+        setIsLoading(true);
         try {
           const savedLayouts = await loadLayouts();
           setLayouts(savedLayouts);
@@ -119,6 +125,9 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
         <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>Mob Controller</Text>
+        <View style={styles.section}>
+             <TouchpadCard navigation={navigation} theme={theme} />
+        </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Custom Layouts</Text>
           <TouchableOpacity style={[styles.newLayoutButton, { backgroundColor: theme.colors.primary }]} onPress={handleOpenAddModal}>
@@ -175,4 +184,15 @@ const styles = StyleSheet.create({
   editButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
   deleteButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, marginLeft: 10 },
   buttonText: { marginLeft: 6, fontWeight: '500' },
+  touchpadCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 16,
+    },
+    touchpadCardText: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginLeft: 15,
+    },
 });
