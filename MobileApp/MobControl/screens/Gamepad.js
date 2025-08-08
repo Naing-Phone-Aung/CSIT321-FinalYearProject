@@ -20,11 +20,9 @@ const window = Dimensions.get('window');
 const landscapeWidth = Math.max(window.width, window.height);
 const landscapeHeight = Math.min(window.width, window.height);
 
-// --- AIM ASSIST GYRO CONSTANTS ---
 const GYRO_DEADZONE = 0.02;
 const SMOOTHING_FACTOR = 0.6;
 
-// --- Components (No changes here, kept for context) ---
 const Joystick = ({ style, onMove, buttonId }) => {
     const joystickSize = style.width;
     const stickSize = joystickSize * 0.55;
@@ -49,7 +47,6 @@ const FloatingButton = (props) => <GameButton {...props} style={[styles.floating
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 
-// --- GyroIndicator component for live feedback ---
 const GyroIndicator = ({ sensitivity }) => {
     const translateX = useSharedValue(0);
     const translateY = useSharedValue(0);

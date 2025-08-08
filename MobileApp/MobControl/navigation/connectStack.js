@@ -11,14 +11,12 @@ const Stack = createStackNavigator();
 export default function ConnectStack() {
   return (
     <Stack.Navigator>
-      {/* Screen 1: The main connect screen */}
       <Stack.Screen 
         name="ConnectMain" 
         component={ConnectScreen}
         options={{ headerShown: false }} 
       />
 
-      {/* Screen 2: The QR scanner, accessible from the ConnectScreen */}
       <Stack.Screen 
         name="QRScan" 
         component={QRScanScreen}

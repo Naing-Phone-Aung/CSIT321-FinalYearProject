@@ -3,10 +3,8 @@
 import React, { createContext, useState, useContext } from 'react';
 import { lightNavigationTheme, darkNavigationTheme } from '../constants/Theme';
 
-// Create the context
 const SettingsContext = createContext();
 
-// Create the Provider component
 export const SettingsProvider = ({ children }) => {
   const [themeMode, setThemeMode] = useState('light');
   const [isHapticEnabled, setIsHapticEnabled] = useState(true);

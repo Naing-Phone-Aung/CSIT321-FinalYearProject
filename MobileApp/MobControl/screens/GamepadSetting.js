@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, Alert } from 'react-native';
 import DraggableLayoutPreview from '../components/DraggableLayoutPreview';
-//import LayoutPreview from '../components/LayoutPreview';
 import TouchableLayoutPreview from '../components/TouchableLayoutPreview';
 import { useNavigation } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
@@ -20,8 +19,7 @@ export default function GamepadSettingScreen({ route }) {
     const [activeMenu, setActiveMenu] = useState('Move');
     const [wrapperSize, setWrapperSize] = useState(null);
 
-    // Slider values normalized 0-1
-    const [sizeValue, setSizeValue] = useState(0.5); // 0.5 will represent 1x original size
+    const [sizeValue, setSizeValue] = useState(0.5); 
     const [opacityValue, setOpacityValue] = useState(1);
 
     const [selectedButtonId, setSelectedButtonId] = useState(null);
@@ -44,7 +42,6 @@ export default function GamepadSettingScreen({ route }) {
         return unsubscribe;
     }, [navigation, currentLayout]);
 
-    // Effect to update slider value when selectedButtonId or activeMenu changes
     useEffect(() => {
         if (selectedButtonId) {
             const button = currentLayout.buttons.find(b => b.id === selectedButtonId);
@@ -54,7 +51,6 @@ export default function GamepadSettingScreen({ route }) {
                     if (originalButtonSize !== null) {
                         const minRange = originalButtonSize * 0.5;
                         const maxRange = originalButtonSize * 1.5;
-                        // Calculate the slider position based on current button size
                         const normalizedSize = (button.size - minRange) / (maxRange - minRange);
                         setSizeValue(normalizedSize);
                     } else {
@@ -65,7 +61,7 @@ export default function GamepadSettingScreen({ route }) {
                 }
             }
         } else {
-            setSizeValue(0.5); // Represents 1x original size when a button is selected
+            setSizeValue(0.5); 
             setOpacityValue(1);
         }
     }, [selectedButtonId, currentLayout, activeMenu, originalButtonSize]); 
@@ -83,9 +79,9 @@ export default function GamepadSettingScreen({ route }) {
                     onPress: () => {
                         const defaultLayout = createDefaultLayout();
                         setCurrentLayout({ ...currentLayout, buttons: defaultLayout.buttons, mappings: {} });
-                        setSelectedButtonId(null); // Clear selection on reset
-                        setOriginalButtonSize(null); // Clear original size reference
-                        setActiveMenu('Move'); // Go back to move mode
+                        setSelectedButtonId(null); 
+                        setOriginalButtonSize(null); 
+                        setActiveMenu('Move');
                         Alert.alert("Layout Reset", "The layout has been reset to its default state.");
                     },
                     style: "destructive",
@@ -109,11 +105,10 @@ export default function GamepadSettingScreen({ route }) {
             setActiveMenu(item);
             setSelectedButtonId(null); 
             setOriginalButtonSize(null); 
-            // Reset slider to default for the new mode if no button is selected
             if (item === 'Size') {
-                setSizeValue(0.5); // Default to 1x original
+                setSizeValue(0.5); 
             } else if (item === 'Opacity') {
-                setOpacityValue(1); // Default to full opacity
+                setOpacityValue(1); 
             }
         }
     };
@@ -129,9 +124,8 @@ export default function GamepadSettingScreen({ route }) {
                   
                     setSizeValue(0.5); 
                 } else {
-                    // For buttons without a 'size' property
                     setOriginalButtonSize(null); 
-                    setSizeValue(0.5); // Default slider to middle
+                    setSizeValue(0.5); 
                 }
             } else if (activeMenu === 'Opacity') {
                 setOpacityValue(typeof button.opacity === 'number' ? button.opacity : 1);
@@ -141,8 +135,8 @@ export default function GamepadSettingScreen({ route }) {
 
     const handleUpdateButtonSize = (sliderNormalizedValue) => {
         if (selectedButtonId && originalButtonSize !== null) {
-            const minRange = originalButtonSize * 0.5; // Half of original size
-            const maxRange = originalButtonSize * 1.5; // 1.5 times original size
+            const minRange = originalButtonSize * 0.5; 
+            const maxRange = originalButtonSize * 1.5; 
             const newSize = minRange + (sliderNormalizedValue * (maxRange - minRange));
 
             setCurrentLayout(prev => ({
@@ -151,14 +145,12 @@ export default function GamepadSettingScreen({ route }) {
                     b.id === selectedButtonId ? { ...b, size: newSize } : b
                 )
             }));
-            setSizeValue(sliderNormalizedValue); // Keep the slider value in sync with the current slider position
+            setSizeValue(sliderNormalizedValue);
         } else if (selectedButtonId) {
-            // wont work w no size property... so no shoulder btn
             console.warn("Cannot scale button: No original size reference or button type doesn't support 'size' property for scaling.");
-            setSizeValue(sliderNormalizedValue); // Still update slider for visual feedback
+            setSizeValue(sliderNormalizedValue); 
         }
     };
-    //Added opacity function
     const handleUpdateButtonOpacity = (sliderNormalizedValue) => {
         setOpacityValue(sliderNormalizedValue);
         setCurrentLayout(prev => ({
@@ -193,8 +185,8 @@ export default function GamepadSettingScreen({ route }) {
                             <View style={[styles.menuButton, styles.activeMenuButton]}><Text style={styles.menuButtonText}>{activeMenu}</Text></View>
                             <Slider
                                 style={styles.slider}
-                                minimumValue={0} // Slider value normalized 0 to 1
-                                maximumValue={1} // Slider value normalized 0 to 1
+                                minimumValue={0} 
+                                maximumValue={1}
                                 minimumTrackTintColor="#FFFFFF"
                                 maximumTrackTintColor="#A0A0A0"
                                 thumbTintColor="#FFFFFF"
@@ -243,7 +235,7 @@ const styles = StyleSheet.create({
     menuButton: { backgroundColor: '#4F4F4F', width: 120, paddingVertical: 12, borderRadius: 8, margin: 6, alignItems: 'center' },
     activeMenuButton: { backgroundColor: '#6E6E6E' },
     menuButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '500', textAlign: 'center' },
-    slider: { flex: 1, height: 40, marginHorizontal: 6 }, // Use flex:1 for slider
+    slider: { flex: 1, height: 40, marginHorizontal: 6 }, 
     previewWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 18 },
     previewContainer: { borderColor: 'rgba(255, 255, 255, 0.25)', borderWidth: 1.5, borderRadius: 12, overflow: 'hidden' },
 });

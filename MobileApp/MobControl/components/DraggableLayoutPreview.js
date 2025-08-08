@@ -1,21 +1,20 @@
+// components/DraggableLayoutPreview.js
+
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native'; 
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
-// These are the static, visual parts of the buttons.
 const PreviewJoystick = ({ style }) => <View style={[styles.joystickBase, style]}><View style={[styles.joystickStick, {width: style.width * 0.55, height: style.width * 0.55, borderRadius: style.width * 0.275}]} /></View>;
 const PreviewActionButton = ({ style, label }) => <View style={[styles.actionButton, style]}><Text style={styles.buttonText}>{label}</Text></View>;
 const PreviewShoulderButton = ({ style, label }) => <View style={[styles.shoulderButton, style]}><Text style={styles.buttonText}>{label}</Text></View>;
 const PreviewDpadButton = ({ style, direction }) => <View style={[styles.dpadShape, style]}><Ionicons name={`caret-${direction}-outline`} size={12} color="#FFF" /></View>;
 const PreviewFloatingButton = ({ style, iconName }) => <View style={[styles.floatingButton, style]}><Feather name={iconName} size={10} color="#FFF" /></View>;
 
-// This is a new wrapper component for a single draggable button
 const DraggableButton = ({ button, previewSize, onMoveEnd }) => {
   const { width: previewWidth, height: previewHeight } = previewSize;
 
-  // Calculate button dimensions in pixels
   let buttonWidth, buttonHeight;
   if (button.type.startsWith('dpad-') || ['joystick', 'action', 'menu', 'clone'].includes(button.type)) {
     buttonHeight = buttonWidth = (button.size / 100) * previewHeight;
@@ -24,11 +23,9 @@ const DraggableButton = ({ button, previewSize, onMoveEnd }) => {
     buttonHeight = (button.height / 100) * previewHeight;
   }
 
-  // Calculate initial pixel position based on percentage
   const initialX = (button.x / 100) * previewWidth - buttonWidth / 2;
   const initialY = (button.y / 100) * previewHeight - buttonHeight / 2;
 
-  // Shared values for animation
   const translateX = useSharedValue(initialX);
   const translateY = useSharedValue(initialY);
   const isDragging = useSharedValue(false);
@@ -52,7 +49,6 @@ const DraggableButton = ({ button, previewSize, onMoveEnd }) => {
         runOnJS(onMoveEnd)(button.id, { x: newPercentX, y: newPercentY });
       }
     })
-    // ----- THIS IS THE CORRECTED LINE -----
     .onFinalize(() => { 
       isDragging.value = false;
     });
@@ -64,7 +60,6 @@ const DraggableButton = ({ button, previewSize, onMoveEnd }) => {
       { translateY: translateY.value },
       { scale: withSpring(isDragging.value ? 1.1 : 1) }
     ],
-    //Edited opacity
     opacity: withSpring(isDragging.value ? Math.min(0.8, typeof button.opacity === 'number' ? button.opacity : 1) : (typeof button.opacity === 'number' ? button.opacity : 1)),
     zIndex: isDragging.value ? 999 : 1,
   }));
@@ -96,7 +91,6 @@ const DraggableButton = ({ button, previewSize, onMoveEnd }) => {
   );
 };
 
-// The main export component
 export default function DraggableLayoutPreview({ layout, size, onButtonMove }) {
   return (
     <View style={styles.previewContainer}>
@@ -112,7 +106,6 @@ export default function DraggableLayoutPreview({ layout, size, onButtonMove }) {
   );
 }
 
-// Styles are identical to LayoutPreview
 const styles = StyleSheet.create({
   previewContainer: { flex: 1, backgroundColor: 'transparent' },
   buttonText: { color: '#E5E5E7', fontSize: 10, fontWeight: '600', textAlign: 'center' }, // Added textAlign

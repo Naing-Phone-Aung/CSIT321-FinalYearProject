@@ -4,7 +4,6 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
-// These simplified, non-interactive components are correct.
 const PreviewJoystick = ({ style }) => <View style={[styles.joystickBase, style]}><View style={[styles.joystickStick, {width: style.width * 0.55, height: style.width * 0.55, borderRadius: style.width * 0.275}]} /></View>;
 const PreviewActionButton = ({ style, label }) => <View style={[styles.actionButton, style]}><Text style={styles.buttonText}>{label}</Text></View>;
 const PreviewShoulderButton = ({ style, label }) => <View style={[styles.shoulderButton, style]}><Text style={styles.buttonText}>{label}</Text></View>;
@@ -45,7 +44,6 @@ export default function LayoutPreview({ layout, size }) {
       ],
       width,
       height,
-      //Added opacity
       opacity: typeof button.opacity === 'number' ? button.opacity : 1,
     };
 

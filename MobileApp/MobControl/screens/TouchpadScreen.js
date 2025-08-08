@@ -13,11 +13,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 
-// --- Reusable Haptic Functions ---
 const triggerClickHaptic = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 const triggerSelectionHaptic = () => Haptics.selectionAsync();
 
-// --- Reusable, Animated, Themed Button Component ---
 const ClickButton = ({ text, onMouseDown, onMouseUp, onMiddleClick, theme, style }) => {
     const isHeld = useSharedValue(false);
     const gesture = onMiddleClick
@@ -53,14 +51,12 @@ const ClickButton = ({ text, onMouseDown, onMouseUp, onMiddleClick, theme, style
     );
 };
 
-// --- Main Touchpad Component ---
 const TouchpadScreen = () => {
     const { theme } = useSettings();
     const styles = useMemo(() => getThemedStyles(theme.colors), [theme.colors]);
     const { sendMessage } = useConnection();
     const [containerHeight, setContainerHeight] = useState(1);
 
-    // --- Refs and Shared Values ---
     const accumulatedDx = useRef(0);
     const accumulatedDy = useRef(0);
     const animationFrameId = useRef(null);
@@ -84,7 +80,6 @@ const TouchpadScreen = () => {
         };
     }, [containerHeight]);
 
-    // --- Handlers and Callbacks ---
     const performSendMessage = (data) => sendMessage(data);
     const handleMouseDown = (button) => {
         triggerClickHaptic();
@@ -211,7 +206,6 @@ const TouchpadScreen = () => {
     );
 };
 
-// This function creates the stylesheet using the provided theme colors
 const getThemedStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
@@ -229,11 +223,11 @@ const getThemedStyles = (colors) => StyleSheet.create({
         backgroundColor: colors.card,
     },
     buttonContainer: {
-        height: 95, // Increased height for better spacing from bottom nav
+        height: 95,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 10,
-        paddingVertical: 12, // Adjusted padding
+        paddingVertical: 12, 
         borderTopWidth: 1,
         borderTopColor: colors.separator,
         backgroundColor: colors.card,
@@ -247,14 +241,14 @@ const getThemedStyles = (colors) => StyleSheet.create({
         height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 22, // Slightly increased border radius for new height
+        borderRadius: 22, 
     },
     middleButton: {
-        width: 65, // Slightly larger middle button
+        width: 65, 
         height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 32.5, // Keep it a circle
+        borderRadius: 32.5, 
         marginHorizontal: 8,
         borderWidth: 1,
         borderColor: colors.separator,

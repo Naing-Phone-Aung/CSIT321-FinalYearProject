@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Data is grouped for better presentation in the UI
 const BUTTON_GROUPS = [
     {
         title: 'Action Buttons',
@@ -80,10 +79,8 @@ export default function MappingEditModal({ visible, onClose, onSave, editingButt
         <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
             <View style={styles.overlay}>
                 <View style={styles.modalContainer}>
-                    {/* UX IMPROVEMENT: Main content is now in a row for horizontal layout */}
                     <View style={styles.horizontalLayout}>
                         
-                        {/* --- LEFT COLUMN --- */}
                         <View style={styles.leftColumn}>
                             <Text style={styles.title}>Edit Mapping: {editingButton?.label}</Text>
                             
@@ -110,7 +107,6 @@ export default function MappingEditModal({ visible, onClose, onSave, editingButt
                             </Text>
                         </View>
 
-                        {/* --- RIGHT COLUMN --- */}
                         <View style={styles.rightColumn}>
                             <ScrollView>
                                 {BUTTON_GROUPS.map(group => (
@@ -170,7 +166,6 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
         elevation: 10
     },
-    // --- NEW STYLES FOR HORIZONTAL LAYOUT ---
     horizontalLayout: {
         flexDirection: 'row',
         maxHeight: '100%',
@@ -182,10 +177,9 @@ const styles = StyleSheet.create({
         borderRightColor: '#444',
     },
     rightColumn: {
-        flex: 1.2, // Give slightly more space to the button grid
+        flex: 1.2, 
         paddingLeft: 15,
     },
-    // --- END NEW STYLES ---
     title: {
         fontSize: 22,
         fontWeight: 'bold',
@@ -231,7 +225,7 @@ const styles = StyleSheet.create({
     comboDisplay: {
         flexDirection: 'row',
         alignItems: 'center',
-        minHeight: 60, // Increased height for better touch targets
+        minHeight: 60, 
         backgroundColor: 'rgba(0,0,0,0.2)',
         borderRadius: 8,
         padding: 5,

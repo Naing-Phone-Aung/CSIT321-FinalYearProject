@@ -25,29 +25,25 @@ const ScannerOverlay = () => (
 
 export default function QRScanScreen() {
   const navigation = useNavigation();
-  // We no longer need connectedPC here, as connectToPC will handle navigation
   const { connectToPC } = useConnection(); 
   const [scanned, setScanned] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
   const handleBarCodeScanned = ({ data }) => {
-    setScanned(true); // Prevent multiple scans
+    setScanned(true); 
     const parts = data.split('|');
 
     if (parts[0] === 'MOB_CONTROL_SERVER' && parts.length === 3) {
-      // --- THIS IS THE KEY CHANGE ---
-      // Append '/qr' to the address to tell the server this is a QR scan
       const pc = { name: parts[1], address: `${parts[2]}/qr` }; 
       
       console.log(`Scanned QR. Attempting to connect to: ${pc.name} at ${pc.address}`);
       connectToPC(pc);
-      // The useConnection hook will handle navigation on 'connection_success'
     } else {
       Alert.alert(
         "Invalid QR Code",
         "This QR code is not valid for MobControl. Please scan the one on your PC.",
-        [{ text: "OK", onPress: () => setScanned(false) }] // Allow scanning again
+        [{ text: "OK", onPress: () => setScanned(false) }]
       );
     }
   };
@@ -56,7 +52,6 @@ export default function QRScanScreen() {
     if (!permission) {
       requestPermission();
     } else if (!permission.granted) {
-      // Handle case where permission was denied
       Alert.alert("Camera Permission", "Camera access is required to scan QR codes.", [
         { text: "OK", onPress: () => navigation.goBack() }
       ]);
@@ -64,7 +59,6 @@ export default function QRScanScreen() {
   }, [permission, requestPermission, navigation]);
 
   if (!permission?.granted) {
-    // Render nothing or a loading/permission message while waiting
     return null;
   }
 

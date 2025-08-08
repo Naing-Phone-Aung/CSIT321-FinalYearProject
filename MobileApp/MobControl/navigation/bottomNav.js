@@ -1,17 +1,17 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack'; // Import Stack Navigator
+import { createStackNavigator } from '@react-navigation/stack'; 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../screens/home';
 import SettingsScreen from '../screens/setting';
 import ConnectStack from './connectStack';
-import TouchpadScreen from '../screens/TouchpadScreen'; // Import the new TouchpadScreen
+import TouchpadScreen from '../screens/TouchpadScreen'; 
 import { useSettings } from '../context/SettingsContext';
+import SettingsStack from './SettiingsStack';
 
 const Tab = createBottomTabNavigator();
-const HomeStack = createStackNavigator(); // Create a stack navigator instance
+const HomeStack = createStackNavigator(); 
 
-// Define the stack of screens that will live inside the "Home" tab
 const HomeStackNavigator = () => {
   const { theme } = useSettings();
   return (
@@ -19,13 +19,13 @@ const HomeStackNavigator = () => {
       <HomeStack.Screen
         name="HomeMain"
         component={HomeScreen}
-        options={{ headerShown: false }} // Hide header for the main home screen
+        options={{ headerShown: false }} 
       />
       <HomeStack.Screen
         name="Touchpad"
         component={TouchpadScreen}
         options={{
-          headerShown: true, // Show header for the Touchpad screen
+          headerShown: true, 
           title: 'Touchpad',
           headerStyle: {
             backgroundColor: theme.colors.background,
@@ -59,7 +59,7 @@ export default function BottomTabNavigator() {
     >
       <Tab.Screen
         name="Home"
-        component={HomeStackNavigator} // Use the stack navigator component here
+        component={HomeStackNavigator} 
         options={{
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />
@@ -77,9 +77,9 @@ export default function BottomTabNavigator() {
         }}
       />
 
-      <Tab.Screen
+     <Tab.Screen
         name="Settings"
-        component={SettingsScreen}
+        component={SettingsStack} 
         options={{
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons name={focused ? 'settings' : 'settings-outline'} color={color} size={size} />

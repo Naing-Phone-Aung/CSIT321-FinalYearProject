@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, Keyboard } from 'react-native';
-import { useSettings } from '../context/SettingsContext'; // Import your settings hook
+import { useSettings } from '../context/SettingsContext'; 
 
 const OTP_LENGTH = 6;
 
 export default function OtpVerificationModal({ visible, onVerify, onClose }) {
-  const { theme } = useSettings(); // Get the theme from your context
+  const { theme } = useSettings();
   const [otp, setOtp] = useState(new Array(OTP_LENGTH).fill(''));
   const [error, setError] = useState('');
   const inputRefs = useRef([]);

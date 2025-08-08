@@ -6,7 +6,6 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import MappingEditModal from '../components/MappingEditModal';
 
-// These helper components have not changed
 const ALL_BUTTONS = [
     { id: 'btn_a', label: 'A' }, { id: 'btn_b', label: 'B' }, { id: 'btn_x', label: 'X' }, { id: 'btn_y', label: 'Y' },
     { id: 'btn_lb', label: 'LB' }, { id: 'btn_rb', label: 'RB' }, { id: 'btn_lt', label: 'LT' }, { id: 'btn_rt', label: 'RT' },
@@ -82,7 +81,6 @@ export default function MappingScreen({ route }) {
     
     return (
         <View style={styles.container}>
-            {/* --- IMPROVEMENT: The side menu is back, but aligned to the top --- */}
             <SafeAreaView style={styles.sideMenuContainer} edges={['left', 'top', 'bottom']}>
                 <View style={styles.sideMenu}>
                     <Pressable 
@@ -129,23 +127,20 @@ export default function MappingScreen({ route }) {
     );
 }
 
-// --- STYLESHEET WITH THE CORRECTED SIDE MENU STYLES ---
 const styles = StyleSheet.create({
     container: { 
         flex: 1, 
         flexDirection: 'row', 
         backgroundColor: '#3E3E3E' 
     },
-    // --- Styles for the top-aligned side menu ---
     sideMenuContainer: { 
         backgroundColor: '#212121', 
         borderRightWidth: 1, 
         borderRightColor: 'rgba(255, 255, 255, 0.05)',
-        // NOTE: We REMOVED `justifyContent: 'center'` to align to top
     },
     sideMenu: { 
         paddingHorizontal: 15,
-        paddingTop: 15, // Space from the top edge
+        paddingTop: 15, 
     },
     sideMenuButton: {
         flexDirection: 'row',
@@ -168,7 +163,6 @@ const styles = StyleSheet.create({
         fontWeight: '500', 
         marginLeft: 10 
     },
-    // --- Styles for the right panel content ---
     rightPanel: { 
         flex: 1,
     },

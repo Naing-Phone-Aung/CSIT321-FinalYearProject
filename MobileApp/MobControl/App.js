@@ -6,17 +6,15 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { ConnectionProvider } from './context/useConnection'; 
+import { LogProvider } from './context/LogContext';
 
 SplashScreen.preventAutoHideAsync();
 
-// This component is helpful to access the theme from SettingsProvider
 const ThemedApp = ({ onLayout }) => {
   const { theme, themeMode } = useSettings();
 
   return (
-    // 1. NavigationContainer now wraps ConnectionProvider
     <NavigationContainer theme={theme} onReady={onLayout}>
-      {/* 2. ConnectionProvider is now INSIDE and can use navigation */}
       <ConnectionProvider>
         <StatusBar style={themeMode === 'light' ? 'dark' : 'light'} />
         <RootNav />
@@ -41,9 +39,10 @@ export default function App() {
   }
 
   return (
-    // SettingsProvider is still the outermost provider
     <SettingsProvider>
-      <ThemedApp onLayout={onLayoutRootView} />
+      <LogProvider>
+        <ThemedApp onLayout={onLayoutRootView} />
+      </LogProvider>
     </SettingsProvider>
   );
 }

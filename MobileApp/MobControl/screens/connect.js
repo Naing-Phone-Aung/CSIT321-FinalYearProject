@@ -46,7 +46,6 @@ const ConnectionStatus = ({ theme }) => {
   return (<View style={styles.statusContainer}><View style={{ flexDirection: 'row', alignItems: 'center' }}><MaterialCommunityIcons name={networkState.isConnected ? "wifi" : "wifi-off"} size={24} color={statusColor} /><Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text></View><TouchableOpacity style={[styles.connectButtonMain, { backgroundColor: theme.colors.primary }]} onPress={handleConnectPress}><Text style={styles.connectButtonText}>Connect</Text></TouchableOpacity></View>);
 };
 
-// --- MODIFIED ConnectionStep to formally accept children ---
 const ConnectionStep = ({ stepNumber, text, theme, children }) => (
     <View style={styles.stepContainer}>
         <View style={[styles.stepCircle, { backgroundColor: theme.colors.card }]}>
@@ -76,7 +75,6 @@ const SearchingCard = ({ onRefresh, isScanning, theme }) => (
 );
 
 
-// --- MAIN SCREEN COMPONENT ---
 
 export default function ConnectScreen() {
   const { theme } = useSettings();
@@ -137,7 +135,6 @@ export default function ConnectScreen() {
                     theme={theme}
                 />
                 
-                {/* --- The button is now a child of the ConnectionStep, placing it below the text --- */}
                 <ConnectionStep
                     stepNumber={2}
                     text="Download the driver app from our website"

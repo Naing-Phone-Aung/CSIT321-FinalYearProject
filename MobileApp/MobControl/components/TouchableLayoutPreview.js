@@ -4,7 +4,6 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
-// These simplified, non-interactive components are correct.
 const PreviewJoystick = ({ style, sizePx }) => (
     <View style={[styles.joystickBase, style]}>
         <View style={[styles.joystickStick, { width: sizePx * 0.55, height: sizePx * 0.55, borderRadius: sizePx * 0.275 }]} />

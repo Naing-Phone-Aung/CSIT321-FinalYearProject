@@ -13,22 +13,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext'; 
 
-const SettingsRow = ({ iconName, iconFamily, title, rightComponent }) => {
+const SettingsRow = ({ iconName, iconFamily, title, rightComponent, onPress }) => {
   const { theme } = useSettings(); 
   const IconComponent = iconFamily === 'Ionicons' ? Ionicons : MaterialCommunityIcons;
 
   return (
-    <View style={styles.row}>
+    <TouchableOpacity onPress={onPress} style={styles.row} disabled={!onPress}>
       <View style={[styles.iconContainer, { backgroundColor: theme.colors.card }]}>
         <IconComponent name={iconName} size={22} color={theme.colors.text} />
       </View>
       <Text style={[styles.rowTitle, { color: theme.colors.text }]}>{title}</Text>
       <View style={styles.rowRight}>{rightComponent}</View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
-export default function SettingsScreen() {
+// Make sure your SettingsScreen component receives the navigation prop
+export default function SettingsScreen({ navigation }) {
   const {
     theme,
     themeMode,
@@ -48,13 +49,13 @@ export default function SettingsScreen() {
             iconName="bug-outline"
             iconFamily="Ionicons"
             title="View Log"
+            // Add the onPress handler here
+            onPress={() => navigation.navigate('ViewLog')} 
             rightComponent={
-              <TouchableOpacity style={styles.rowRightGroup}>
-                <Text style={[styles.rowValue, { color: theme.colors.textSecondary }]}>
-                  No Error
-                </Text>
+              <View style={styles.rowRightGroup}>
+                {/* The text can be removed or kept, as per your preference */}
                 <Ionicons name="chevron-forward" size={20} color={theme.colors.icon} />
-              </TouchableOpacity>
+              </View>
             }
           />
           <View style={[styles.separator, { backgroundColor: theme.colors.separator }]} />
@@ -93,7 +94,7 @@ export default function SettingsScreen() {
   );
 }
 
-// --- UPDATED STYLES ---
+// --- STYLES (No changes needed here from your original code) ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
