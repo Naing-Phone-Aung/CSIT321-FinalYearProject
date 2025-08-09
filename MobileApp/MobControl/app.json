@@ -5,7 +5,6 @@
     "orientation": "default",
     "jsEngine": "hermes",
     "version": "1.0.0",
-    //"orientation": "portrait",
     "icon": "./assets/MobControlLogo.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -46,7 +45,15 @@
       }
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ]
   }
 }
