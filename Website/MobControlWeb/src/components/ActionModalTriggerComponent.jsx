@@ -1,5 +1,4 @@
 import React from "react";
-import sampleQR from "../assets/sample-qr.png";
 import {
   Modal,
   ModalContent,
@@ -8,33 +7,36 @@ import {
   ModalFooter,
   Button,
   useDisclosure,
-  Tabs, Tab, Card, CardBody
+  Tabs,
+  Tab,
+  Card,
+  CardBody,
+  Link, // Import the Link component from HeroUI
 } from "@heroui/react";
 
 const ActionModalTriggerComponent = ({ buttonText, buttonClassName }) => {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+
+  // URLs for your application downloads
+  const androidApkUrl = "https://github.com/Naing-Phone-Aung/CSIT321-FinalYearProject/releases/download/v1.0.0/MobControl.apk";
+  const pcSetupUrl = "https://github.com/Naing-Phone-Aung/CSIT321-FinalYearProject/releases/download/v1.0.0/MobControlPC-setup.exe";
+  const vigembusDriverUrl = "https://vigembusdriver.com/download/";
+
   let tabs = [
-    {
-      id: "ios",
-      label: "IOS",
-      content: sampleQR,
-      caption:
-        "Scan the QR code to instantly download the app on your iPhone via the App Store",
-    },
     {
       id: "android",
       label: "Android",
-      content: sampleQR,
-      caption:
-        "Scan the QR code to instantly download the app on your Android via the Play Store",
+      content: `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(androidApkUrl)}`,
+      caption: "Scan the QR code to download the APK for your Android device.",
     },
     {
-        id: "windows",
-        label: "Windows",
-        caption:
-            "Scan the QR code to instantly download the app on your Windows via the Microsoft Store",
-    }
+      id: "windows",
+      label: "Windows",
+      downloadUrl: pcSetupUrl,
+      caption: "Download the setup file for your Windows PC.",
+    },
   ];
+
   return (
     <>
       <Button className={buttonClassName} onPress={onOpen}>
@@ -45,28 +47,64 @@ const ActionModalTriggerComponent = ({ buttonText, buttonClassName }) => {
           {(onClose) => (
             <>
               <ModalHeader className="flex flex-col font-bold text-4xl text-ink uppercase text-center">
-                Get the MobConroller App
+                Get the MobControl App
               </ModalHeader>
               <ModalBody>
                 <div className="flex w-full flex-col">
                   <Tabs
-                    aria-label="Dynamic tabs"
+                    aria-label="Download options"
                     className="mx-auto"
                     items={tabs}
                   >
                     {(item) => (
-                      <Tab  key={item.id} title={item.label}>
+                      <Tab key={item.id} title={item.label}>
                         <Card>
-                          <CardBody>
-                            <p className="text-center text-lg font-medium py-5">
-                              Scan the QR code to download the app
-                            </p>
-                            {item.content && (<img
-                              src={item.content}
-                              className="size-40 mx-auto"
-                              alt=""
-                            />)}
-                            <p className="text-center py-3">{item.caption}</p>
+                          <CardBody className="py-8 text-center">
+                            {/* Conditional rendering for Android Tab */}
+                            {item.id === "android" && (
+                              <div>
+                                <p className="text-lg font-medium pb-5">
+                                  Scan the QR code to download the app
+                                </p>
+                                <img
+                                  src={item.content}
+                                  className="size-40 mx-auto"
+                                  alt="Android App QR Code"
+                                />
+                                <p className="pt-4">{item.caption}</p>
+                              </div>
+                            )}
+
+                            {/* Conditional rendering for Windows Tab */}
+                            {item.id === "windows" && (
+                              <div>
+                                <p className="text-lg font-medium pb-4">
+                                  {item.caption}
+                                </p>
+                                <p className="text-sm px-4 mb-5">
+                                  For the PC application to work correctly, the
+                                  ViGEmBus driver is required. Please{" "}
+                                  <Link
+                                    href={vigembusDriverUrl}
+                                    isExternal
+                                    className="text-primary underline"
+                                  >
+                                    download and install it
+                                  </Link>{" "}
+                                  if you haven't already.
+                                </p>
+                                <Button
+                                  as="a"
+                                  href={item.downloadUrl}
+                                  download
+                                  className="bg-ink text-white mx-auto"
+                                  variant="solid"
+                                  radius="xs"
+                                >
+                                  Download MobControl PC
+                                </Button>
+                              </div>
+                            )}
                           </CardBody>
                         </Card>
                       </Tab>
@@ -74,16 +112,7 @@ const ActionModalTriggerComponent = ({ buttonText, buttonClassName }) => {
                   </Tabs>
                 </div>
               </ModalBody>
-              <ModalFooter className="">
-                {/* <Button
-                  className="bg-ink text-white mx-auto"
-                  variant="solid"
-                  radius="xs"
-                  onPress={onClose}
-                >
-                  Yes, I scanned the QR code
-                </Button> */}
-              </ModalFooter>
+              <ModalFooter />
             </>
           )}
         </ModalContent>
