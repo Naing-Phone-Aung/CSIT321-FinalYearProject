@@ -26,37 +26,38 @@
 
 ## Project Overview
 
-**MobControl** empowers users to turn their mobile devices into game controllers, bridging the gap between smartphones and gaming experiences on PCs. Designed to work seamlessly across platforms, MobControl offers:
+**MobControl** allows users to transform their smartphones into fully functional game controllers, bridging mobile devices and PC gaming. Designed for seamless, cross-platform operation, MobControl delivers:
 
-* Intuitive control via mobile
-* Real-time interaction with desktop environments
-* Smooth connectivity for enhanced gaming immersion
+* Intuitive and customizable mobile controls
+* Low-latency, real-time interaction with PC applications
+* Easy connectivity through QR code scanning, tap-to-connect, or Wi-Fi
 
 ---
 
 ## Features
 
-* **Real-time input mapping**: Touch inputs on mobile get transmitted to your PC instantly.
-* **Cross-platform compatibility**: Works across Android and desktop environments.
-* **Web-based dashboard**: Monitor connection status and configure control schemes dynamically.
+* **Real-time input mapping** – Mobile touch inputs are instantly transmitted to your PC.
+* **Cross-platform support** – Compatible with Android devices and desktop systems.
+* **Web dashboard** – View connection status, configure control layouts, and manage devices.
+* **Multiple connection modes** – Scan QR, tap-to-connect, or connect via network.
 
 ---
 
 ## Architecture & Structure
 
-The repository is organized into key folders:
+The repository is organized as follows:
 
-* **.expo** – Expo project setup and configuration files
-* **DesktopApp** – Desktop application (likely built with C#) for receiving and interpreting control signals
-* **MobileApp** – The client-side application for mobile devices
-* **Website** – Web dashboard for connection management, settings, and monitoring
+* **.expo** – Expo project configuration and cache
+* **DesktopApp** – C# desktop application handling input reception and integration with games
+* **MobileApp** – React Native/Expo mobile client for sending control inputs
+* **Website** – Web dashboard for control customization and connection management
 
 ---
 
 ## Design Prototype
 
-Explore the app’s UI and user flow via the Figma wireframe prototype:
-[Design Prototype (Figma)](https://www.figma.com)
+Visualize the UI and user flow with our Figma prototype:
+[View Prototype](https://www.figma.com/design/j6X1HD2Ga7WKuDWk2K6miD/Prototype-for-MobController?node-id=0-1&t=K77M20p63bp0sRZW-1)
 
 ---
 
@@ -64,9 +65,9 @@ Explore the app’s UI and user flow via the Figma wireframe prototype:
 
 ### Prerequisites
 
-* Node.js (Recommended: v16 or higher)
-* .NET SDK (if desktop app uses C#)
-* Android SDK (if building for Android)
+* Node.js v16 or higher
+* .NET SDK (for the desktop app)
+* Android SDK (for Android builds)
 
 ### Clone the Repository
 
@@ -75,43 +76,50 @@ git clone https://github.com/Naing-Phone-Aung/CSIT321-FinalYearProject.git
 cd CSIT321-FinalYearProject
 ```
 
-### Launch the Mobile App
+### Mobile App (Standard Launch)
 
 ```bash
 cd MobileApp
 npm install
-npm start
+npx expo start
 ```
 
-### Launch the Desktop App
+### Mobile App (WebSocket Development)
+
+```bash
+npx expo run:android
+```
+
+### Desktop App
 
 ```bash
 cd DesktopApp
-# Build and run using .NET commands or IDE
+dotnet restore
+dotnet build
 ```
 
-### Launch the Website
+### Website
 
 ```bash
 cd Website
 npm install
-npm run dev
+npm run build
 ```
 
 ---
 
 ## Usage
 
-1. Launch the **Desktop App** to prepare for incoming controller input.
-2. Open the **Mobile App**, connect to the desktop via QR code, tap-to-connect, or Wi-Fi.
-3. Use the **Website** dashboard to customize controls or check connection status.
-4. Start your game and enjoy controlling it with your mobile device.
+1. Start the **Desktop App** to listen for controller input.
+2. Launch the **Mobile App** and connect via QR scan, tap-to-connect, or Wi-Fi.
+3. Use the **Website** dashboard to customize layouts or monitor connections.
+4. Launch your game and enjoy controlling it with your mobile device.
 
 ---
 
 ## Release
 
-* **Latest Release**: MobControl (Android/PC setup) – August 9, 2025
+* **Latest Release**: MobControl (Android/PC) – *August 9, 2025*
 
 ---
 
@@ -119,24 +127,25 @@ npm run dev
 
 Developed by Group FYP‑25‑S2‑32:
 
-* \[Contributor 1]
-* \[Contributor 2]
-* \[Contributor 3]
-* \[Contributor 4]
+* Naing Phone Aung
+* Muhammad Naim Hazeret Bin Zainal
+* Nathalee Tjoe
+* Richard Angelo
+* Ryan Chong Hao Ran
 
 ---
 
 ## Technologies
 
-| Language / Framework | Usage                    |
-| -------------------- | ------------------------ |
-| JavaScript           | MobileApp & Website      |
-| TypeScript           | Web or Mobile components |
-| C#                   | Desktop application      |
-| CSS & HTML           | Web dashboard UI         |
+| Language / Framework | Usage                 |
+| -------------------- | --------------------- |
+| JavaScript           | MobileApp & Website   |
+| JavaScript           | Web/Mobile components |
+| C#                   | DesktopApp            |
+| CSS & React          | Website UI            |
 
 ---
 
 ## Contact
 
-For questions, feedback, or collaboration opportunities, please reach out via GitHub Issues or your preferred contact channel.
+For inquiries, suggestions, or collaboration requests, please reach out via GitHub Issues or your preferred communication channel.
