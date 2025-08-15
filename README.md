@@ -1,103 +1,142 @@
-# CSIT321-FinalYearProject: [MobControl]
+# CSIT321 Final Year Project – MobControl
 
-> Transforming Mobile Devices into Game Controllers
+**MobControl: Transforming Mobile Devices into Game Controllers**
+*Group: FYP‑25‑S2‑32*
+
+---
 
 ## Table of Contents
 
-- [About The Project](#about-the-project)
-  - [Built With](#built-with)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-- [Usage](#usage)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
-- [Acknowledgements](#acknowledgements)
+* [Project Overview](#project-overview)
+* [Features](#features)
+* [Architecture & Structure](#architecture--structure)
 
-## About The Project
+  * Mobile App
+  * Desktop App
+  * Website
+* [Design Prototype](#design-prototype)
+* [Installation & Setup](#installation--setup)
+* [Usage](#usage)
+* [Release](#release)
+* [Contributors](#contributors)
+* [Technologies](#technologies)
+* [Contact](#contact)
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
+---
 
-Here, provide a more detailed description of your project. Explain the problem it solves, the motivation behind creating it, and what you learned during the process. This is your opportunity to showcase your work to potential employers or collaborators.
+## Project Overview
 
-### Built With
+**MobControl** empowers users to turn their mobile devices into game controllers, bridging the gap between smartphones and gaming experiences on PCs. Designed to work seamlessly across platforms, MobControl offers:
 
-This section should list all the major frameworks, libraries, and tools you used to build your project.
+* Intuitive control via mobile
+* Real-time interaction with desktop environments
+* Smooth connectivity for enhanced gaming immersion
 
-*   [Next.js](https://nextjs.org/)
-*   [React.js](https://reactjs.org/)
-*   [Tailwind CSS](https://tailwindcss.com/)
-*   [Node.js](https://nodejs.org/)
+---
 
-## Getting Started
+## Features
 
-This section will guide a user or developer on how to get a local copy of your project up and running.
+* **Real-time input mapping**: Touch inputs on mobile get transmitted to your PC instantly.
+* **Cross-platform compatibility**: Works across Android and desktop environments.
+* **Web-based dashboard**: Monitor connection status and configure control schemes dynamically.
+
+---
+
+## Architecture & Structure
+
+The repository is organized into key folders:
+
+* **.expo** – Expo project setup and configuration files
+* **DesktopApp** – Desktop application (likely built with C#) for receiving and interpreting control signals
+* **MobileApp** – The client-side application for mobile devices
+* **Website** – Web dashboard for connection management, settings, and monitoring
+
+---
+
+## Design Prototype
+
+Explore the app’s UI and user flow via the Figma wireframe prototype:
+[Design Prototype (Figma)](https://www.figma.com)
+
+---
+
+## Installation & Setup
 
 ### Prerequisites
 
-List any software or tools that need to be installed on a user's machine before they can run your project, and provide the commands to install them.
+* Node.js (Recommended: v16 or higher)
+* .NET SDK (if desktop app uses C#)
+* Android SDK (if building for Android)
 
-*   npm
-    ```sh
-    npm install npm@latest -g
-    ```
+### Clone the Repository
 
-### Installation
+```bash
+git clone https://github.com/Naing-Phone-Aung/CSIT321-FinalYearProject.git
+cd CSIT321-FinalYearProject
+```
 
-1.  Clone the repo
-    ```sh
-    git clone https://github.com/Naing-Phone-Aung/CSIT321-FinalYearProject.git
-    ```
-2.  Install NPM packages
-    ```sh
-    npm install
-    ```
-3.  Enter your API in `config.js`
-    ```js
-    const API_KEY = 'ENTER YOUR API';
-    ```
+### Launch the Mobile App
+
+```bash
+cd MobileApp
+npm install
+npm start
+```
+
+### Launch the Desktop App
+
+```bash
+cd DesktopApp
+# Build and run using .NET commands or IDE
+```
+
+### Launch the Website
+
+```bash
+cd Website
+npm install
+npm run dev
+```
+
+---
 
 ## Usage
 
-Provide instructions and examples on how to use your application. You can include code snippets, screenshots, or even GIFs to demonstrate the functionality. Explain what a user can do with your project and how they can do it.
+1. Launch the **Desktop App** to prepare for incoming controller input.
+2. Open the **Mobile App**, connect to the desktop via QR code, tap-to-connect, or Wi-Fi.
+3. Use the **Website** dashboard to customize controls or check connection status.
+4. Start your game and enjoy controlling it with your mobile device.
 
-_For more examples, please refer to the [Documentation](https://example.com)_
+---
 
-## Roadmap
+## Release
 
-See the [open issues](https://github.com/Naing-Phone-Aung/CSIT321-FinalYearProject/issues) for a list of proposed features (and known issues).
+* **Latest Release**: MobControl (Android/PC setup) – August 9, 2025
 
-## Contributing
+---
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+## Contributors
 
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
+Developed by Group FYP‑25‑S2‑32:
 
-## License
+* \[Contributor 1]
+* \[Contributor 2]
+* \[Contributor 3]
+* \[Contributor 4]
 
-Distributed under the MIT License. See `LICENSE` for more information.
+---
+
+## Technologies
+
+| Language / Framework | Usage                    |
+| -------------------- | ------------------------ |
+| JavaScript           | MobileApp & Website      |
+| TypeScript           | Web or Mobile components |
+| C#                   | Desktop application      |
+| CSS & HTML           | Web dashboard UI         |
+
+---
 
 ## Contact
 
-Naing Phone Aung - [Your Email Address]
-
-Project Link: [https://github.com/Naing-Phone-Aung/CSIT321-FinalYearProject](https://github.com/Naing-Phone-Aung/CSIT321-FinalYearProject)
-
-## Acknowledgements
-
-*   [GitHub README Template](https://github.com/othneildrew/Best-README-Template)
-*   [Choose an Open Source License](https://choosealicense.com)
-*   [Img Shields](https://shields.io)
-
-[product-screenshot]: images/screenshot.png
-
-
-
-
-
+For questions, feedback, or collaboration opportunities, please reach out via GitHub Issues or your preferred contact channel.
